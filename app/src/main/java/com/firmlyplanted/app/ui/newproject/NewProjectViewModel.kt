@@ -10,6 +10,7 @@ import com.firmlyplanted.app.data.repository.ScopePreview
 import com.firmlyplanted.app.data.repository.TranslationRepository
 import com.firmlyplanted.app.domain.DefaultTranslations
 import com.firmlyplanted.app.domain.Translation
+import com.firmlyplanted.app.domain.Versification
 import kotlinx.coroutines.launch
 
 class NewProjectViewModel(
@@ -36,6 +37,39 @@ class NewProjectViewModel(
     var startVerse by mutableStateOf(1)
     var endChapter by mutableStateOf(1)
     var endVerse by mutableStateOf(1)
+
+    /** Picking a new book resets the range — the old chapter/verse numbers rarely make sense in it. */
+    fun selectBook(name: String) {
+        book = name
+        startChapter = 1
+        startVerse = 1
+        endChapter = 1
+        endVerse = Versification.lastVerse(name, 1)
+        previewResult = null
+    }
+
+    fun selectStartChapter(chapter: Int) {
+        startChapter = chapter
+        startVerse = 1
+        previewResult = null
+    }
+
+    fun selectStartVerse(verse: Int) {
+        startVerse = verse
+        previewResult = null
+    }
+
+    /** Defaults the end verse to the last verse of the newly picked chapter — usually what's wanted. */
+    fun selectEndChapter(chapter: Int) {
+        endChapter = chapter
+        endVerse = Versification.lastVerse(book, chapter)
+        previewResult = null
+    }
+
+    fun selectEndVerse(verse: Int) {
+        endVerse = verse
+        previewResult = null
+    }
 
     var newPerDay by mutableStateOf(2)
     var reviewPerDay by mutableStateOf(20)

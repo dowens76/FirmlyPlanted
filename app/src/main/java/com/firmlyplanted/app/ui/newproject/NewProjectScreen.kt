@@ -40,7 +40,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.data.repository.ScopeBlockedException
@@ -48,6 +47,7 @@ import com.firmlyplanted.app.domain.BookCatalog
 import com.firmlyplanted.app.domain.DefaultTranslations
 import com.firmlyplanted.app.domain.ScopeCheck
 import com.firmlyplanted.app.domain.Translation
+import com.firmlyplanted.app.domain.Versification
 import com.firmlyplanted.app.ui.CopyrightNotice
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.resolveStringByName
@@ -194,20 +194,34 @@ private fun ScopeStep(vm: NewProjectViewModel) {
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             books.forEach { book ->
-                DropdownMenuItem(text = { Text(book.name) }, onClick = { vm.book = book.name; expanded = false })
+                DropdownMenuItem(text = { Text(book.name) }, onClick = { vm.selectBook(book.name); expanded = false })
             }
         }
     }
 
+    if (vm.book.isNotBlank() && !Versification.hasData(vm.book)) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Verse ranges for this book aren't preloaded — pick a number and use \"Check this range\" to confirm it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    val startChapterOptions = remember(vm.book) { (1..Versification.chapterCount(vm.book)).toList() }
+    val startVerseOptions = remember(vm.book, vm.startChapter) { (1..Versification.lastVerse(vm.book, vm.startChapter)).toList() }
+    val endChapterOptions = remember(vm.book) { (1..Versification.chapterCount(vm.book)).toList() }
+    val endVerseOptions = remember(vm.book, vm.endChapter) { (1..Versification.lastVerse(vm.book, vm.endChapter)).toList() }
+
     Spacer(Modifier.height(12.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        NumberField("Start ch.", vm.startChapter, Modifier.weight(1f)) { vm.startChapter = it }
-        NumberField("Start v.", vm.startVerse, Modifier.weight(1f)) { vm.startVerse = it }
+        IntDropdownField("Start ch.", vm.startChapter, startChapterOptions, Modifier.weight(1f)) { vm.selectStartChapter(it) }
+        IntDropdownField("Start v.", vm.startVerse, startVerseOptions, Modifier.weight(1f)) { vm.selectStartVerse(it) }
     }
     Spacer(Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        NumberField("End ch.", vm.endChapter, Modifier.weight(1f)) { vm.endChapter = it }
-        NumberField("End v.", vm.endVerse, Modifier.weight(1f)) { vm.endVerse = it }
+        IntDropdownField("End ch.", vm.endChapter, endChapterOptions, Modifier.weight(1f)) { vm.selectEndChapter(it) }
+        IntDropdownField("End v. (defaults to last verse)", vm.endVerse, endVerseOptions, Modifier.weight(1f)) { vm.selectEndVerse(it) }
     }
 
     Spacer(Modifier.height(12.dp))
@@ -233,15 +247,25 @@ private fun ScopeStep(vm: NewProjectViewModel) {
     StepNav(canProceed = canProceed, isLast = false, onNext = { vm.goTo(3) })
 }
 
+/** A dropdown of valid numbers (chapters or verses) — see Versification for where the options come from. */
 @Composable
-private fun NumberField(label: String, value: Int, modifier: Modifier = Modifier, onChange: (Int) -> Unit) {
-    OutlinedTextField(
-        value = value.toString(),
-        onValueChange = { text -> text.toIntOrNull()?.let { if (it in 1..200) onChange(it) } },
-        label = { Text(label) },
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = modifier,
-    )
+private fun IntDropdownField(label: String, value: Int, options: List<Int>, modifier: Modifier = Modifier, onSelect: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = value.toString(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.height(320.dp)) {
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(option.toString()) }, onClick = { onSelect(option); expanded = false })
+            }
+        }
+    }
 }
 
 @Composable
