@@ -20,11 +20,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.firmlyplanted.app.domain.VerseMasking
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
 
@@ -75,15 +79,62 @@ fun SessionScreen(projectId: String, onDone: () -> Unit) {
     }
 }
 
+private enum class LearningMode { READ, CYCLE, FIRST_LETTER }
+
 @Composable
 private fun NewVerseCard(text: String?, onLearned: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    var mode by remember(text) { mutableStateOf(LearningMode.READ) }
+    var round by remember(text) { mutableStateOf(1) }
+    // Re-created (and so reset to false) whenever the mode or round changes, so a peek never
+    // carries over into the next round or mode.
+    var peeking by remember(text, mode, round) { mutableStateOf(false) }
+
+    val displayText = when {
+        text == null -> null
+        peeking -> text
+        mode == LearningMode.CYCLE -> VerseMasking.forRound(text, round)
+        mode == LearningMode.FIRST_LETTER -> VerseMasking.firstLetterOnly(text)
+        else -> text
+    }
+    val caption = when (mode) {
+        LearningMode.READ -> "New verse — read it over a few times."
+        LearningMode.CYCLE -> "Practice round $round of ${VerseMasking.TOTAL_ROUNDS} — tap the verse to peek."
+        LearningMode.FIRST_LETTER -> "First letters only — tap the verse to peek."
+    }
+
+    Card(onClick = { if (text != null) peeking = !peeking }, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
-            Text("New verse — read it over a few times.", style = MaterialTheme.typography.labelMedium)
+            Text(caption, style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(12.dp))
-            Text(text ?: "Not cached yet — connect to the internet and reopen Today.", style = MaterialTheme.typography.bodyLarge)
+            Text(displayText ?: "Not cached yet — connect to the internet and reopen Today.", style = MaterialTheme.typography.bodyLarge)
         }
     }
+
+    Spacer(Modifier.height(16.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { mode = LearningMode.CYCLE; round = 1 },
+            enabled = text != null,
+            modifier = Modifier.weight(1f),
+        ) { Text("Practice cycle") }
+        OutlinedButton(
+            onClick = { mode = LearningMode.FIRST_LETTER },
+            enabled = text != null,
+            modifier = Modifier.weight(1f),
+        ) { Text("First letters") }
+    }
+
+    if (mode == LearningMode.CYCLE) {
+        Spacer(Modifier.height(12.dp))
+        val onLastRound = round >= VerseMasking.TOTAL_ROUNDS
+        Button(
+            onClick = { if (onLastRound) mode = LearningMode.READ else round++ },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (onLastRound) "Done practicing" else "Next round ($round/${VerseMasking.TOTAL_ROUNDS})")
+        }
+    }
+
     Spacer(Modifier.height(20.dp))
     Button(onClick = onLearned, enabled = text != null, modifier = Modifier.fillMaxWidth()) {
         Text("I've got it — start reviewing")
