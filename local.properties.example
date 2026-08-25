@@ -1,0 +1,6 @@
+# Copy this file to local.properties (which is gitignored) and fill in your own key.
+# Get a free, non-commercial ESV API key at https://api.esv.org/ — sign up, then find your
+# key on your account's API page. Never commit local.properties or your real key.
+
+sdk.dir=/path/to/your/Android/sdk
+ESV_API_KEY=your-esv-api-key-here

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Firmly Planted</string>
+
+    <!-- Required copyright/license notices. Do not edit wording without re-checking the
+         source's current terms of use — see LICENSING.md at the repo root. -->
+    <string name="copyright_esv">Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), copyright © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. The ESV text may not be quoted in any publication made available to the public by a Creative Commons license. The ESV may not be translated into any other language. Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.</string>
+
+    <string name="copyright_sblgnt">Scripture quotations marked SBLGNT are from the SBL Greek New Testament. Copyright 2010 Society of Biblical Literature and Logos Bible Software.</string>
+
+    <string name="copyright_wlc">Hebrew text: Westminster Leningrad Codex, public domain. Courtesy of the J. Alan Groves Center for Advanced Biblical Research (groves.center).</string>
+
+    <string name="copyright_vie1925">Vietnamese text: Kinh Thánh (1925), public domain per eBible.org (New Testament: Jan 1, 2019; Old Testament: Jan 1, 2021 — US copyright-term expiration). Note: a separately-typeset 1998 United Bible Societies edition of the same underlying translation is distributed elsewhere under its own copyright notice; this app uses the public-domain eBible.org/fetch.bible file specifically.</string>
+
+    <string name="copyright_fetch_bible_generic">Text provided via fetch.bible. See this translation\'s license details on the About &amp; Licenses screen; where none is available, treat the text as all-rights-reserved and contact the publisher before broader distribution.</string>
+
+    <string name="vie1925_scope_info">This app\'s Vietnamese 1925 text is the public-domain eBible.org edition. A different, separately-typeset 1998 United Bible Societies edition of the same translation is distributed elsewhere under its own copyright — if you plan to publish this app widely, it\'s worth a quick confirmation before relying on this. See LICENSING.md.</string>
+
+    <string name="esv_scope_error">ESV licensing allows caching at most 500 verses (or half a book, whichever is fewer) at a time. Please split this into a smaller project.</string>
+</resources>
