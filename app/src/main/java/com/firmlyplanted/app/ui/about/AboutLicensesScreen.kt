@@ -70,6 +70,19 @@ fun AboutLicensesScreen(onBack: () -> Unit) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
+                        Text("Fonts", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Hebrew text (WLC) renders in Ezra SIL, and Greek text (SBLGNT) renders " +
+                                "in Gentium — both by SIL International, licensed under the SIL Open " +
+                                "Font License 1.1.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
                         Text("Firmly Planted app", style = MaterialTheme.typography.titleSmall)
                         Text("Licensed under the MIT License. Source and full text of all licenses are in this app's repository.", style = MaterialTheme.typography.bodySmall)
                     }

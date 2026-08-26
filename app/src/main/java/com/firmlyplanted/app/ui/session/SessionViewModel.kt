@@ -7,18 +7,26 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firmlyplanted.app.data.local.VerseEntity
 import com.firmlyplanted.app.data.repository.ProjectRepository
+import com.firmlyplanted.app.data.repository.TranslationRepository
+import com.firmlyplanted.app.domain.Translation
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SessionViewModel(
     private val projectId: String,
     private val projectRepository: ProjectRepository,
+    private val translationRepository: TranslationRepository,
 ) : ViewModel() {
 
     val verses: StateFlow<List<VerseEntity>> = projectRepository.observeVerses(projectId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Drives which script-specific font (Ezra SIL, Gentium) the verse text renders with. */
+    var translation by mutableStateOf<Translation?>(null)
+        private set
 
     var queue by mutableStateOf<List<String>>(emptyList())
         private set
@@ -35,6 +43,9 @@ class SessionViewModel(
 
     init {
         viewModelScope.launch {
+            val project = projectRepository.observeProject(projectId).first()
+            translation = project?.let { translationRepository.getById(it.translationId) }
+
             val plan = projectRepository.getTodayPlan(projectId)
             newIds = plan.newVerseIds.toSet()
             // Review what's already learned before introducing today's new material, per the

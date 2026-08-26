@@ -25,20 +25,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.domain.VerseMasking
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
+import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
+import com.firmlyplanted.app.ui.theme.scriptureTextStyle
 
 @Composable
 fun SessionScreen(projectId: String, onDone: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SessionViewModel = viewModel(
-        factory = simpleFactory { SessionViewModel(projectId, container.projectRepository) },
+        factory = simpleFactory { SessionViewModel(projectId, container.projectRepository, container.translationRepository) },
     )
     val verses by viewModel.verses.collectAsStateWithLifecycle()
+    val verseFontFamily = fontFamilyForLanguage(viewModel.translation?.language)
 
     Scaffold(topBar = { TopAppBar(title = { Text("Today's Session") }) }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -62,10 +66,11 @@ fun SessionScreen(projectId: String, onDone: () -> Unit) {
                             )
                             Spacer(Modifier.height(16.dp))
                             if (viewModel.isCurrentNew()) {
-                                NewVerseCard(text = verse.text, onLearned = { viewModel.confirmLearned() })
+                                NewVerseCard(text = verse.text, fontFamily = verseFontFamily, onLearned = { viewModel.confirmLearned() })
                             } else {
                                 ReviewVerseCard(
                                     text = verse.text,
+                                    fontFamily = verseFontFamily,
                                     revealed = viewModel.revealed,
                                     onReveal = { viewModel.reveal() },
                                     onResult = { ok -> viewModel.submitReview(ok) },
@@ -82,7 +87,7 @@ fun SessionScreen(projectId: String, onDone: () -> Unit) {
 private enum class LearningMode { READ, CYCLE, FIRST_LETTER }
 
 @Composable
-private fun NewVerseCard(text: String?, onLearned: () -> Unit) {
+private fun NewVerseCard(text: String?, fontFamily: FontFamily, onLearned: () -> Unit) {
     var mode by remember(text) { mutableStateOf(LearningMode.READ) }
     var round by remember(text) { mutableStateOf(1) }
     // Re-created (and so reset to false) whenever the mode or round changes, so a peek never
@@ -106,7 +111,11 @@ private fun NewVerseCard(text: String?, onLearned: () -> Unit) {
         Column(Modifier.padding(20.dp)) {
             Text(caption, style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(12.dp))
-            Text(displayText ?: "Not cached yet — connect to the internet and reopen Today.", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                displayText ?: "Not cached yet — connect to the internet and reopen Today.",
+                style = scriptureTextStyle(),
+                fontFamily = fontFamily,
+            )
         }
     }
 
@@ -142,13 +151,23 @@ private fun NewVerseCard(text: String?, onLearned: () -> Unit) {
 }
 
 @Composable
-private fun ReviewVerseCard(text: String?, revealed: Boolean, onReveal: () -> Unit, onResult: (Boolean) -> Unit) {
+private fun ReviewVerseCard(
+    text: String?,
+    fontFamily: FontFamily,
+    revealed: Boolean,
+    onReveal: () -> Unit,
+    onResult: (Boolean) -> Unit,
+) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp)) {
             Text("Try to recall this verse, then reveal it.", style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.height(12.dp))
             if (revealed) {
-                Text(text ?: "Not cached yet — connect to the internet and reopen Today.", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text ?: "Not cached yet — connect to the internet and reopen Today.",
+                    style = scriptureTextStyle(),
+                    fontFamily = fontFamily,
+                )
             }
         }
     }
