@@ -48,26 +48,5 @@ book-code coverage for less common "More" catalog entries.
   account as a tester — you can then install it via a private Play Store link, which also
   covers auto-updates going forward.
 
-## Publishing to the Google Play Store
-
-1. Create a Google Play Console developer account (one-time $25 fee, a Google account you
-   control).
-2. In Android Studio, generate a signed release build: Build → Generate Signed Bundle/APK →
-   Android App Bundle, creating (and safely backing up) a signing key — or enable Play App
-   Signing, which lets Google manage the signing key for you after you upload an initial upload
-   key.
-3. Create the app listing in Play Console: title, description, screenshots, icon, content
-   rating questionnaire, and a **privacy policy URL** (required even for a simple app — it
-   should disclose that the app makes network requests to api.esv.org and fetch.bible to fetch
-   Scripture text, and whether you add any analytics/crash reporting later).
-4. Fill out the Data Safety form describing what data the app collects (as scaffolded, it
-   collects none beyond what's needed to fetch Bible text — no accounts, no analytics).
-5. Upload the `.aab` to a testing track first (Internal → Closed/Open → Production), and submit
-   for review.
-6. **Remember the ESV API's non-commercial restriction**: as long as this app is free with no
-   ads, you're within the free API key's terms. If you ever want to monetize it, contact
-   Crossway about a commercial ESV license before doing so — don't add ads/paid distribution
-   against the free key.
-
 See [LICENSING.md](LICENSING.md) for the full breakdown of what each text source allows, and
 in particular the note on the Vietnamese 1925 text worth a second look before a public release.
