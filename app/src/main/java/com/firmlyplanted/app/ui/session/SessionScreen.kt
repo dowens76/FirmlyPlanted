@@ -1,5 +1,6 @@
 package com.firmlyplanted.app.ui.session
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,9 +37,10 @@ import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
 import com.firmlyplanted.app.ui.theme.scriptureTextStyle
+import kotlin.math.abs
 
 @Composable
-fun SessionScreen(projectId: String, onDone: () -> Unit) {
+fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SessionViewModel = viewModel(
         factory = simpleFactory { SessionViewModel(projectId, container.projectRepository, container.translationRepository) },
@@ -48,7 +52,7 @@ fun SessionScreen(projectId: String, onDone: () -> Unit) {
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when {
                 viewModel.loading -> CircularProgressIndicator()
-                viewModel.finished -> SessionComplete(onDone)
+                viewModel.finished -> SessionComplete(onDone = { onDone(viewModel.queue) })
                 else -> {
                     val verse = verses.find { it.id == viewModel.currentVerseId() }
                     if (verse == null) {
@@ -158,11 +162,73 @@ private fun ReviewVerseCard(
     onReveal: () -> Unit,
     onResult: (Boolean) -> Unit,
 ) {
-    Card(Modifier.fillMaxWidth()) {
+    // A shorter, swipe-driven version of the initial learning cycle, offered as an alternative
+    // to jumping straight to Reveal, and also used to reinforce a verse right after a missed
+    // recall — all reset whenever a new verse comes up.
+    var cycling by remember(text) { mutableStateOf(false) }
+    var round by remember(text) { mutableStateOf(1) }
+    var peeking by remember(text, round) { mutableStateOf(false) }
+    // True when the cycle was launched from "Not quite" rather than from the pre-reveal button,
+    // so completing it should submit the (already-known) failed result instead of revealing.
+    var reinforcing by remember(text) { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { 56.dp.toPx() }
+
+    val cycleText = text?.let { VerseMasking.forRound(it, round, VerseMasking.REVIEW_ROUNDS) }
+
+    Card(
+        onClick = { if (cycling) peeking = !peeking },
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (cycling) {
+                    Modifier.pointerInput(round) {
+                        var dragTotal = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { dragTotal = 0f },
+                            onHorizontalDrag = { change, dragAmount ->
+                                dragTotal += dragAmount
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                if (abs(dragTotal) > swipeThresholdPx) {
+                                    peeking = false
+                                    if (round >= VerseMasking.REVIEW_ROUNDS) {
+                                        cycling = false
+                                        if (reinforcing) {
+                                            reinforcing = false
+                                            onResult(false)
+                                        } else {
+                                            onReveal()
+                                        }
+                                    } else {
+                                        round++
+                                    }
+                                }
+                            },
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
         Column(Modifier.padding(20.dp)) {
-            Text("Try to recall this verse, then reveal it.", style = MaterialTheme.typography.labelMedium)
+            Text(
+                when {
+                    cycling -> "Review round $round of ${VerseMasking.REVIEW_ROUNDS} — swipe to continue, tap to peek."
+                    else -> "Try to recall this verse, then reveal it."
+                },
+                style = MaterialTheme.typography.labelMedium,
+            )
             Spacer(Modifier.height(12.dp))
-            if (revealed) {
+            if (cycling) {
+                Text(
+                    (if (peeking) text else cycleText) ?: "Not cached yet — connect to the internet and reopen Today.",
+                    style = scriptureTextStyle(),
+                    fontFamily = fontFamily,
+                )
+            } else if (revealed) {
                 Text(
                     text ?: "Not cached yet — connect to the internet and reopen Today.",
                     style = scriptureTextStyle(),
@@ -172,14 +238,29 @@ private fun ReviewVerseCard(
         }
     }
     Spacer(Modifier.height(20.dp))
-    if (!revealed) {
-        Button(onClick = onReveal, modifier = Modifier.fillMaxWidth()) { Text("Reveal") }
-    } else {
-        Text("Did you recall it correctly?", style = MaterialTheme.typography.labelMedium)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { onResult(false) }, modifier = Modifier.weight(1f)) { Text("Not quite") }
-            Button(onClick = { onResult(true) }, modifier = Modifier.weight(1f)) { Text("Got it") }
+    when {
+        cycling -> {}
+        !revealed -> {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { cycling = true; round = 1 },
+                    enabled = text != null,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Practice cycle (${VerseMasking.REVIEW_ROUNDS}x)") }
+                Button(onClick = onReveal, enabled = text != null, modifier = Modifier.weight(1f)) { Text("Reveal") }
+            }
+        }
+        else -> {
+            Text("Did you recall it correctly?", style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = { cycling = true; round = 1; reinforcing = true },
+                    enabled = text != null,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Not quite") }
+                Button(onClick = { onResult(true) }, modifier = Modifier.weight(1f)) { Text("Got it") }
+            }
         }
     }
 }

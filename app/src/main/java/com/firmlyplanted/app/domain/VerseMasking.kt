@@ -9,6 +9,9 @@ object VerseMasking {
 
     const val TOTAL_ROUNDS = 10
 
+    /** Rounds in the shortened, swipe-driven practice cycle offered during review. */
+    const val REVIEW_ROUNDS = 5
+
     /** Replaces each letter/digit in [word] with '-', leaving punctuation/marks as-is. */
     private fun maskAllChars(word: String): String =
         word.map { ch -> if (ch.isLetterOrDigit()) '-' else ch }.joinToString("")
@@ -54,18 +57,19 @@ object VerseMasking {
     }
 
     /**
-     * The text for one round (1..TOTAL_ROUNDS) of the progressive-hiding drill: round 1 shows
-     * the verse in full, round TOTAL_ROUNDS hides every word, with the hidden-word count
+     * The text for one round (1..totalRounds) of the progressive-hiding drill: round 1 shows
+     * the verse in full, round [totalRounds] hides every word, with the hidden-word count
      * stepping up evenly in between. A word hidden at an earlier round stays hidden at every
-     * later round — words never flicker back into view once masked.
+     * later round — words never flicker back into view once masked. Defaults to [TOTAL_ROUNDS]
+     * for the initial-learning drill; pass [REVIEW_ROUNDS] for the shortened review cycle.
      */
-    fun forRound(text: String, round: Int): String {
-        val clampedRound = round.coerceIn(1, TOTAL_ROUNDS)
+    fun forRound(text: String, round: Int, totalRounds: Int = TOTAL_ROUNDS): String {
+        val clampedRound = round.coerceIn(1, totalRounds)
         val matches = WORD_REGEX.findAll(text).toList()
         val n = matches.size
         if (n == 0) return text
 
-        val hiddenCount = (n * (clampedRound - 1) / (TOTAL_ROUNDS - 1).toDouble())
+        val hiddenCount = (n * (clampedRound - 1) / (totalRounds - 1).toDouble())
             .let { Math.round(it).toInt() }
             .coerceIn(0, n)
         val revealOrder = evenlySpreadRevealOrder(n)

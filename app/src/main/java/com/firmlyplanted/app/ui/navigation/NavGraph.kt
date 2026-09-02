@@ -10,22 +10,28 @@ import androidx.navigation.NavType
 import com.firmlyplanted.app.ui.about.AboutLicensesScreen
 import com.firmlyplanted.app.ui.home.HomeScreen
 import com.firmlyplanted.app.ui.newproject.NewProjectScreen
+import com.firmlyplanted.app.ui.session.GroupReviewScreen
 import com.firmlyplanted.app.ui.session.SessionScreen
 import com.firmlyplanted.app.ui.settings.ProjectSettingsScreen
 import com.firmlyplanted.app.ui.today.TodayScreen
 import com.firmlyplanted.app.ui.webreader.ReadMoreScreen
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 private object Routes {
     const val HOME = "home"
     const val NEW_PROJECT = "newProject"
     const val TODAY = "today/{projectId}"
     const val SESSION = "session/{projectId}"
+    const val GROUP_REVIEW = "groupReview/{projectId}/{verseIds}"
     const val SETTINGS = "settings/{projectId}"
     const val ABOUT = "about"
     const val READ_MORE = "readMore/{projectId}"
 
     fun today(id: String) = "today/$id"
     fun session(id: String) = "session/$id"
+    fun groupReview(id: String, verseIds: List<String>) =
+        "groupReview/$id/${URLEncoder.encode(verseIds.joinToString(","), "UTF-8")}"
     fun settings(id: String) = "settings/$id"
     fun readMore(id: String) = "readMore/$id"
 }
@@ -68,7 +74,33 @@ fun FirmlyPlantedNavHost(navController: NavHostController = rememberNavControlle
             arguments = listOf(navArgument("projectId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val projectId = backStackEntry.arguments?.getString("projectId") ?: return@composable
-            SessionScreen(projectId = projectId, onDone = { navController.popBackStack() })
+            SessionScreen(
+                projectId = projectId,
+                onDone = { verseIds ->
+                    if (verseIds.isEmpty()) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate(Routes.groupReview(projectId, verseIds)) {
+                            popUpTo(Routes.session(projectId)) { inclusive = true }
+                        }
+                    }
+                },
+            )
+        }
+        composable(
+            Routes.GROUP_REVIEW,
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("verseIds") { type = NavType.StringType },
+            ),
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: return@composable
+            val verseIds = backStackEntry.arguments?.getString("verseIds")
+                ?.let { URLDecoder.decode(it, "UTF-8") }
+                ?.split(",")
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+            GroupReviewScreen(projectId = projectId, verseIds = verseIds, onDone = { navController.popBackStack() })
         }
         composable(
             Routes.SETTINGS,
