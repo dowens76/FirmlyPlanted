@@ -32,6 +32,13 @@ object VerseMasking {
     /** First-letter-only view: every word keeps just its first letter, rest hyphened. */
     fun firstLetterOnly(text: String): String = WORD_REGEX.replace(text) { maskAllButFirstChar(it.value) }
 
+    /** The first [count] words of [text] (with their original spacing/punctuation), for a review hint. */
+    fun firstWords(text: String, count: Int = 2): String {
+        val matches = WORD_REGEX.findAll(text).take(count).toList()
+        if (matches.isEmpty()) return ""
+        return text.substring(0, matches.last().range.last + 1)
+    }
+
     /**
      * Deterministic, evenly-spread order in which words become permanently revealed as the
      * round number increases (see [forRound]) — greedy farthest-point placement, so revealed

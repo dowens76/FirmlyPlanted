@@ -1,5 +1,6 @@
 package com.firmlyplanted.app.ui.session
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -171,10 +176,12 @@ private fun ReviewVerseCard(
     // True when the cycle was launched from "Not quite" rather than from the pre-reveal button,
     // so completing it should submit the (already-known) failed result instead of revealing.
     var reinforcing by remember(text) { mutableStateOf(false) }
+    var hintShown by remember(text) { mutableStateOf(false) }
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 56.dp.toPx() }
 
     val cycleText = text?.let { VerseMasking.forRound(it, round, VerseMasking.REVIEW_ROUNDS) }
+    val hintText = text?.let { VerseMasking.firstWords(it) }
 
     Card(
         onClick = { if (cycling) peeking = !peeking },
@@ -234,13 +241,27 @@ private fun ReviewVerseCard(
                     style = scriptureTextStyle(),
                     fontFamily = fontFamily,
                 )
+            } else if (hintShown) {
+                Text(
+                    hintText ?: "Not cached yet — connect to the internet and reopen Today.",
+                    style = scriptureTextStyle(),
+                    fontFamily = fontFamily,
+                )
             }
         }
+    }
+    if (cycling) {
+        Spacer(Modifier.height(12.dp))
+        PageIndicator(pageCount = VerseMasking.REVIEW_ROUNDS, currentPage = round - 1, modifier = Modifier.fillMaxWidth())
     }
     Spacer(Modifier.height(20.dp))
     when {
         cycling -> {}
         !revealed -> {
+            TextButton(onClick = { hintShown = !hintShown }, enabled = text != null) {
+                Text(if (hintShown) "Hide hint" else "Hint")
+            }
+            Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { cycling = true; round = 1 },
@@ -261,6 +282,21 @@ private fun ReviewVerseCard(
                 ) { Text("Not quite") }
                 Button(onClick = { onResult(true) }, modifier = Modifier.weight(1f)) { Text("Got it") }
             }
+        }
+    }
+}
+
+/** Dot-style progress indicator for a swipe-through-pages flow; the current page is lighter. */
+@Composable
+private fun PageIndicator(pageCount: Int, currentPage: Int, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+        repeat(pageCount) { page ->
+            val color = if (page == currentPage) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         }
     }
 }
