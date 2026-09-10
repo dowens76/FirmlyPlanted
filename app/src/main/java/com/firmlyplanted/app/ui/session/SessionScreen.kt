@@ -41,6 +41,7 @@ import com.firmlyplanted.app.domain.VerseMasking
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
+import com.firmlyplanted.app.ui.theme.isRtlLanguage
 import com.firmlyplanted.app.ui.theme.scriptureTextStyle
 import kotlin.math.abs
 
@@ -52,6 +53,7 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
     )
     val verses by viewModel.verses.collectAsStateWithLifecycle()
     val verseFontFamily = fontFamilyForLanguage(viewModel.translation?.language)
+    val verseIsRtl = isRtlLanguage(viewModel.translation?.language)
 
     Scaffold(topBar = { TopAppBar(title = { Text("Today's Session") }) }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -75,11 +77,17 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
                             )
                             Spacer(Modifier.height(16.dp))
                             if (viewModel.isCurrentNew()) {
-                                NewVerseCard(text = verse.text, fontFamily = verseFontFamily, onLearned = { viewModel.confirmLearned() })
+                                NewVerseCard(
+                                    text = verse.text,
+                                    fontFamily = verseFontFamily,
+                                    isRtl = verseIsRtl,
+                                    onLearned = { viewModel.confirmLearned() },
+                                )
                             } else {
                                 ReviewVerseCard(
                                     text = verse.text,
                                     fontFamily = verseFontFamily,
+                                    isRtl = verseIsRtl,
                                     revealed = viewModel.revealed,
                                     onReveal = { viewModel.reveal() },
                                     onResult = { ok -> viewModel.submitReview(ok) },
@@ -101,7 +109,7 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
 private enum class LearningMode { READ, CYCLE, FIRST_LETTER }
 
 @Composable
-private fun NewVerseCard(text: String?, fontFamily: FontFamily, onLearned: () -> Unit) {
+private fun NewVerseCard(text: String?, fontFamily: FontFamily, isRtl: Boolean, onLearned: () -> Unit) {
     var mode by remember(text) { mutableStateOf(LearningMode.READ) }
     var round by remember(text) { mutableStateOf(1) }
     // Re-created (and so reset to false) whenever the mode or round changes, so a peek never
@@ -127,7 +135,7 @@ private fun NewVerseCard(text: String?, fontFamily: FontFamily, onLearned: () ->
             Spacer(Modifier.height(12.dp))
             Text(
                 displayText ?: "Not cached yet — connect to the internet and reopen Today.",
-                style = scriptureTextStyle(),
+                style = scriptureTextStyle(rtl = isRtl && displayText != null),
                 fontFamily = fontFamily,
             )
         }
@@ -168,6 +176,7 @@ private fun NewVerseCard(text: String?, fontFamily: FontFamily, onLearned: () ->
 private fun ReviewVerseCard(
     text: String?,
     fontFamily: FontFamily,
+    isRtl: Boolean,
     revealed: Boolean,
     onReveal: () -> Unit,
     onResult: (Boolean) -> Unit,
@@ -235,21 +244,22 @@ private fun ReviewVerseCard(
             )
             Spacer(Modifier.height(12.dp))
             if (cycling) {
+                val shown = if (peeking) text else cycleText
                 Text(
-                    (if (peeking) text else cycleText) ?: "Not cached yet — connect to the internet and reopen Today.",
-                    style = scriptureTextStyle(),
+                    shown ?: "Not cached yet — connect to the internet and reopen Today.",
+                    style = scriptureTextStyle(rtl = isRtl && shown != null),
                     fontFamily = fontFamily,
                 )
             } else if (revealed) {
                 Text(
                     text ?: "Not cached yet — connect to the internet and reopen Today.",
-                    style = scriptureTextStyle(),
+                    style = scriptureTextStyle(rtl = isRtl && text != null),
                     fontFamily = fontFamily,
                 )
             } else if (hintShown) {
                 Text(
                     hintText ?: "Not cached yet — connect to the internet and reopen Today.",
-                    style = scriptureTextStyle(),
+                    style = scriptureTextStyle(rtl = isRtl && hintText != null),
                     fontFamily = fontFamily,
                 )
             }

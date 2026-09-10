@@ -26,6 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
+import com.firmlyplanted.app.ui.theme.isRtlLanguage
 import com.firmlyplanted.app.ui.theme.scriptureTextStyle
 
 /**
@@ -43,6 +44,7 @@ fun GroupReviewScreen(projectId: String, verseIds: List<String>, onDone: () -> U
     )
     val verses by viewModel.verses.collectAsStateWithLifecycle()
     val fontFamily = fontFamilyForLanguage(viewModel.translation?.language)
+    val isRtl = isRtlLanguage(viewModel.translation?.language)
 
     var revealedIds by remember { mutableStateOf(emptySet<String>()) }
     var showAll by remember { mutableStateOf(false) }
@@ -79,7 +81,7 @@ fun GroupReviewScreen(projectId: String, verseIds: List<String>, onDone: () -> U
                             if (revealed) {
                                 Text(
                                     verse.text ?: "Not cached yet — connect to the internet and reopen Today.",
-                                    style = scriptureTextStyle(),
+                                    style = scriptureTextStyle(rtl = isRtl && verse.text != null),
                                     fontFamily = fontFamily,
                                 )
                             }

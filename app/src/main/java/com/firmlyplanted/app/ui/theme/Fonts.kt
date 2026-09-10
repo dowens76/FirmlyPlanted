@@ -6,6 +6,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import com.firmlyplanted.app.R
 
 /**
@@ -28,15 +30,25 @@ fun fontFamilyForLanguage(language: String?): FontFamily = when (language?.trim(
     else -> FontFamily.Default
 }
 
+/** True for languages (currently just Hebrew) whose verse text should render right-to-left. */
+fun isRtlLanguage(language: String?): Boolean = language?.trim()?.lowercase() == "hebrew"
+
 /** Multiplier applied to bodyLarge for all rendered Bible/verse text — a single knob to tune it from. */
 private const val SCRIPTURE_TEXT_SCALE = 1.5f
 
-/** The text style every rendered verse (new-verse card, review card) should use — 50% larger than bodyLarge by default. */
+/**
+ * The text style every rendered verse (new-verse card, review card) should use — 50% larger than
+ * bodyLarge by default. Pass [rtl] for languages like Hebrew so the paragraph both flows and
+ * aligns right-to-left rather than just shaping individual right-to-left glyphs within an
+ * otherwise left-aligned block.
+ */
 @Composable
-fun scriptureTextStyle(): TextStyle {
+fun scriptureTextStyle(rtl: Boolean = false): TextStyle {
     val base = MaterialTheme.typography.bodyLarge
     return base.copy(
         fontSize = base.fontSize * SCRIPTURE_TEXT_SCALE,
         lineHeight = base.lineHeight * SCRIPTURE_TEXT_SCALE,
+        textDirection = if (rtl) TextDirection.Rtl else TextDirection.Content,
+        textAlign = if (rtl) TextAlign.Right else base.textAlign,
     )
 }
