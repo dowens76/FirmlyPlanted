@@ -60,6 +60,13 @@ class SessionViewModel(
 
     fun isCurrentNew(): Boolean = currentVerseId() in newIds
 
+    /**
+     * Today's due-review verses, excluding the new verse(s) not yet introduced — used by
+     * "Skip to full passage review" so the group-review screen covers what's already been
+     * learned without pulling in (and thereby exposing) today's still-unlearned new verse.
+     */
+    fun reviewOnlyQueueIds(): List<String> = queue.filterNot { it in newIds }
+
     fun reveal() {
         revealed = true
     }

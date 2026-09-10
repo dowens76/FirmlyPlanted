@@ -85,6 +85,11 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
                                     onResult = { ok -> viewModel.submitReview(ok) },
                                 )
                             }
+                            Spacer(Modifier.height(24.dp))
+                            SlowDownOptions(
+                                onFinishSession = { onDone(emptyList()) },
+                                onSkipToFullPassageReview = { onDone(viewModel.reviewOnlyQueueIds()) },
+                            )
                         }
                     }
                 }
@@ -297,6 +302,24 @@ private fun PageIndicator(pageCount: Int, currentPage: Int, modifier: Modifier =
                 MaterialTheme.colorScheme.primary
             }
             Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        }
+    }
+}
+
+/**
+ * Lets the user slow the pace down mid-session instead of pushing through everything today.
+ * Both options leave anything not yet acted on untouched — in particular, today's new verse
+ * stays un-introduced until "I've got it" is actually tapped, so it comes back as the new verse
+ * next time rather than advancing.
+ */
+@Composable
+private fun SlowDownOptions(onFinishSession: () -> Unit, onSkipToFullPassageReview: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = onFinishSession, modifier = Modifier.weight(1f)) {
+            Text("Finish Session")
+        }
+        TextButton(onClick = onSkipToFullPassageReview, modifier = Modifier.weight(1f)) {
+            Text("Skip to full passage review")
         }
     }
 }
