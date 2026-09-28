@@ -1,5 +1,6 @@
 package com.firmlyplanted.app.ui.newproject
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.data.repository.ScopeBlockedException
@@ -71,6 +75,11 @@ fun NewProjectScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
         viewModel.createResult?.onSuccess { onCreated(it) }
     }
 
+    // The iOS keyboard has no dismiss key for multi-line fields (Return adds a line), and it covers
+    // the Next button — so offer Done in the top bar while typing, and dismiss on a tap outside.
+    val focusManager = LocalFocusManager.current
+    var editing by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -80,11 +89,17 @@ fun NewProjectScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    if (editing) TextButton(onClick = { focusManager.clearFocus() }) { Text("Done") }
+                },
             )
         },
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().padding(padding)
+                .onFocusChanged { editing = it.hasFocus }
+                .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
+                .padding(16.dp).verticalScroll(rememberScrollState()),
         ) {
             when (viewModel.step) {
                 0 -> NameStep(viewModel)
