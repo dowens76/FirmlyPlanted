@@ -1,6 +1,6 @@
 # Firmly Planted
 
-Firmly Planted is an Android app for memorizing whole chapters or books of the Bible, using a
+Firmly Planted is an Android and iPhone app for memorizing whole chapters or books of the Bible, using a
 graduated cumulative-review method (new verses added a few at a time; everything already
 learned reviewed on a lengthening schedule), inspired by Scripta Memoria and Andy Davis's
 *How to Memorize Scripture for Life*.
@@ -33,7 +33,25 @@ for "verify" / "worth confirming") for the handful of spots called out as needin
 real-world check, mainly around the exact Material3 dropdown API version and the fetch.bible
 book-code coverage for less common "More" catalog entries.
 
-## Installing it on your own phone
+## Building it for iPhone
+
+The app is Kotlin Multiplatform: everything except a thin Android shell (`app/`) and a thin
+iOS shell (`iosApp/`) lives in `shared/`, with the UI written once in Compose Multiplatform.
+
+1. You'll need a Mac with Xcode and a JDK (Android Studio's bundled one is fine), plus the same
+   `local.properties` with your `ESV_API_KEY` as above — the key is compiled into both apps.
+2. Open `iosApp/iosApp.xcodeproj` in Xcode, pick an iPhone simulator, and hit Run (▶). The
+   "Compile Kotlin Framework" build phase runs Gradle to build `shared/` for you, so the first
+   build takes a few minutes.
+3. **On your own iPhone**: select the `iosApp` target → Signing & Capabilities, choose your
+   Team (a free Apple ID works, but the app then stops launching after 7 days; the $99/year
+   Apple Developer Program removes that and enables TestFlight/App Store), then pick your
+   phone as the run destination.
+
+If you set up the Xcode project again from scratch, it needs `-lsqlite3` in Other Linker Flags
+and Dead Code Stripping on — Room's iOS framework won't link without them.
+
+## Installing it on your own phone (Android)
 
 - **Fastest — USB debug run**: enable Developer Options on your phone (Settings → About phone →
   tap "Build number" 7 times), then enable USB debugging inside Developer Options. Plug the
