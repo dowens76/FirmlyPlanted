@@ -48,9 +48,11 @@ object ReviewScheduler {
 
     /**
      * Builds today's plan: which not-yet-started verses to introduce, and which already-started
-     * verses are due for review, each capped by the project's daily settings. Due reviews are
-     * prioritized most-overdue-first; anything over the cap simply stays due and surfaces first
-     * tomorrow, rather than being dropped.
+     * verses are due for review, each capped by the project's daily settings. Work already done
+     * today counts against each cap — verses introduced today against the new-verse cap, verses
+     * reviewed today against the review cap — so finishing a session doesn't unlock more of the
+     * same day's work. Due reviews are prioritized most-overdue-first; anything over the cap
+     * simply stays due and surfaces first tomorrow, rather than being dropped.
      */
     fun planToday(
         allVerses: List<VerseProgress>,
@@ -58,21 +60,33 @@ object ReviewScheduler {
         reviewVersesPerDay: Int,
         today: LocalDate = currentDate(),
     ): TodayPlan {
-        val notStarted = allVerses
-            .filter { it.phase == VersePhase.NEW && it.addedDate == null }
-            .sortedBy { it.orderIndex }
-            .take(newVersesPerDay)
-            .map { it.id }
+        val introducedToday = allVerses.count { it.addedDate == today }
+        // Introducing a verse also stamps lastReviewedDate, so only earlier-introduced verses are
+        // today's reviews. A review always reschedules to tomorrow or later, so each verse counts once.
+        val reviewedToday = allVerses.count { it.lastReviewedDate == today && it.addedDate != today }
 
-        val due = allVerses
+        return TodayPlan(
+            newVerseIds = upcomingNewVerseIds(allVerses, (newVersesPerDay - introducedToday).coerceAtLeast(0)),
+            dueReviewIds = dueReviewIds(allVerses, (reviewVersesPerDay - reviewedToday).coerceAtLeast(0), today),
+        )
+    }
+
+    /** Up to [count] verses due for review on [today], most overdue first — ignoring any reviews already done today. */
+    fun dueReviewIds(allVerses: List<VerseProgress>, count: Int, today: LocalDate = currentDate()): List<String> =
+        allVerses
             .filter { it.addedDate != null && it.phase != VersePhase.MASTERED }
             .filter { it.nextReviewDate == null || it.nextReviewDate <= today }
             .sortedBy { it.nextReviewDate } // nulls (never scheduled) sort first
-            .take(reviewVersesPerDay)
+            .take(count)
             .map { it.id }
 
-        return TodayPlan(newVerseIds = notStarted, dueReviewIds = due)
-    }
+    /** The next [count] not-yet-started verses in passage order — the ones the next introductions will draw from. */
+    fun upcomingNewVerseIds(allVerses: List<VerseProgress>, count: Int): List<String> =
+        allVerses
+            .filter { it.phase == VersePhase.NEW && it.addedDate == null }
+            .sortedBy { it.orderIndex }
+            .take(count)
+            .map { it.id }
 
     /** Call when a verse is first introduced (moves NEW -> LEARNING, schedules tomorrow). */
     fun onIntroduced(progress: VerseProgress, today: LocalDate = currentDate()): VerseProgress =

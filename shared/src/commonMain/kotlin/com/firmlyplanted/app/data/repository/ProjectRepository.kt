@@ -149,23 +149,29 @@ class ProjectRepository(
     }
 
     /**
-     * Ensures cached text covers today's active verses (new + due) plus WINDOW_PADDING verses
-     * of surrounding context, fetching only what's missing, then evicts any cached text that
-     * has fallen outside every current window — so Room's actual cache never grows beyond a
-     * small multiple of the daily verse counts, however large the project's declared scope is.
-     * No-ops the fetch (but still evicts) when offline.
+     * Ensures cached text covers today's active verses (new + due) and the next session's worth
+     * of new verses and backlogged reviews, plus WINDOW_PADDING verses of surrounding context,
+     * fetching only what's missing, then evicts any cached text that has fallen outside every
+     * current window — so Room's actual cache never grows beyond a small multiple of the daily
+     * verse counts, however large the project's declared scope is. No-ops the fetch (but still
+     * evicts) when offline.
      */
     suspend fun ensureWindowCached(projectId: String, translation: Translation, isOnline: Boolean) {
         val project = projectDao.getById(projectId) ?: return
         val allVerses = verseDao.getForProject(projectId).sortedBy { it.orderIndex }
         if (allVerses.isEmpty()) return
 
+        val progress = allVerses.map { it.toProgress() }
         val plan = ReviewScheduler.planToday(
-            allVerses = allVerses.map { it.toProgress() },
+            allVerses = progress,
             newVersesPerDay = project.newVersesPerDay,
             reviewVersesPerDay = project.reviewVersesPerDay,
         )
-        val focusIds = (plan.newVerseIds + plan.dueReviewIds).toSet()
+        // Upcoming new verses and backlogged reviews are kept even once today's caps are used up,
+        // so they're already cached if the next session starts offline.
+        val upcomingIds = ReviewScheduler.upcomingNewVerseIds(progress, project.newVersesPerDay) +
+            ReviewScheduler.dueReviewIds(progress, project.reviewVersesPerDay)
+        val focusIds = (plan.newVerseIds + plan.dueReviewIds + upcomingIds).toSet()
         val focusIndices = allVerses.filter { it.id in focusIds }.map { it.orderIndex }
         // A brand-new project has no due/new ids computed yet on first ever open; fall back to
         // the start of the passage so there's always something to show.

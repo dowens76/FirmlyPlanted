@@ -41,6 +41,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // shared/'s Compose resources (fonts, license strings) arrive twice: as APK assets and as
+            // Java resources. Compose reads fonts only from assets and everything else assets-first,
+            // so the Java-resource copy is dead weight (~1 MB of APK). Assets are unaffected by this rule.
+            excludes += "/composeResources/**"
         }
     }
 }
