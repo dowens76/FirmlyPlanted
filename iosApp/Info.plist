@@ -6,5 +6,8 @@
 	     Compose render at 120Hz on ProMotion iPhones, as Compose Multiplatform recommends. -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- Only standard HTTPS (exempt), so App Store Connect needn't ask about export compliance per build. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
