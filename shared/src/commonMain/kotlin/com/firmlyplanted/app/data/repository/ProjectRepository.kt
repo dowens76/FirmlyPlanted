@@ -2,15 +2,19 @@ package com.firmlyplanted.app.data.repository
 
 import com.firmlyplanted.app.data.local.MemoryProjectDao
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
+import com.firmlyplanted.app.data.local.TranslationDao
 import com.firmlyplanted.app.data.local.VerseDao
 import com.firmlyplanted.app.data.local.VerseEntity
 import com.firmlyplanted.app.domain.BookCatalog
 import com.firmlyplanted.app.domain.LicensePolicy
+import com.firmlyplanted.app.domain.PastedTranslations
+import com.firmlyplanted.app.domain.PastedVerse
 import com.firmlyplanted.app.domain.ProjectStatus
 import com.firmlyplanted.app.domain.ReviewScheduler
 import com.firmlyplanted.app.domain.ScopeCheck
 import com.firmlyplanted.app.domain.Translation
 import com.firmlyplanted.app.domain.TodayPlan
+import com.firmlyplanted.app.domain.TranslationSource
 import com.firmlyplanted.app.domain.VersePhase
 import com.firmlyplanted.app.domain.VerseProgress
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +35,7 @@ data class ScopePreview(val verseCount: Int, val check: ScopeCheck)
 class ProjectRepository(
     private val projectDao: MemoryProjectDao,
     private val verseDao: VerseDao,
+    private val translationDao: TranslationDao,
     private val textFetcher: TextFetcher,
 ) {
     companion object {
@@ -121,6 +126,74 @@ class ProjectRepository(
         return Result.success(projectId)
     }
 
+    /**
+     * Creates a project from pasted text (see PastedTextParser). Unlike fetched projects, every
+     * verse's text is stored up front and kept for the life of the project — there's no source to
+     * re-fetch it from — so each pasted project gets its own Translation row describing the paste.
+     */
+    suspend fun createPastedProject(
+        name: String,
+        bookName: String,
+        verses: List<PastedVerse>,
+        translationLabel: String,
+        language: String,
+        link: String?,
+        newVersesPerDay: Int,
+        reviewVersesPerDay: Int,
+    ): Result<String> {
+        if (verses.isEmpty()) return Result.failure(IllegalArgumentException("No verses to memorize."))
+        val translation = PastedTranslations.create(PastedTranslations.ID_PREFIX + newId(), translationLabel, language, link)
+        translationDao.upsertAll(listOf(translation.toEntity()))
+
+        val projectId = newId()
+        val first = verses.first()
+        val last = verses.last()
+        projectDao.insert(
+            MemoryProjectEntity(
+                id = projectId,
+                name = name,
+                translationId = translation.id,
+                book = bookName,
+                startChapter = first.chapter,
+                startVerse = first.verse,
+                endChapter = last.chapter,
+                endVerse = last.verse,
+                newVersesPerDay = newVersesPerDay,
+                reviewVersesPerDay = reviewVersesPerDay,
+                status = ProjectStatus.ACTIVE,
+                createdAt = currentDateTime(),
+                completedAt = null,
+            ),
+        )
+        val now = currentDateTime()
+        verseDao.insertAll(
+            verses.mapIndexed { index, v ->
+                VerseEntity(
+                    id = newId(),
+                    projectId = projectId,
+                    book = bookName,
+                    chapter = v.chapter,
+                    verseNumber = v.verse,
+                    orderIndex = index,
+                    text = v.text,
+                    textCachedAt = now,
+                    phase = VersePhase.NEW,
+                    addedDate = null,
+                    lastReviewedDate = null,
+                    nextReviewDate = null,
+                    consecutiveSuccesses = 0,
+                )
+            },
+        )
+        return Result.success(projectId)
+    }
+
+    /** Whether the project's text was pasted in — its text is the only copy, so it's never evicted. */
+    suspend fun isPasted(projectId: String): Boolean {
+        val project = projectDao.getById(projectId) ?: return false
+        return translationDao.getById(project.translationId)?.source == TranslationSource.PASTED
+    }
+
     /** Resolves real verse boundaries + license-cap check for a candidate scope, without persisting anything. */
     suspend fun previewScope(
         translation: Translation,
@@ -157,6 +230,7 @@ class ProjectRepository(
      * evicts) when offline.
      */
     suspend fun ensureWindowCached(projectId: String, translation: Translation, isOnline: Boolean) {
+        if (translation.source == TranslationSource.PASTED) return // Stored in full; nothing to fetch or evict.
         val project = projectDao.getById(projectId) ?: return
         val allVerses = verseDao.getForProject(projectId).sortedBy { it.orderIndex }
         if (allVerses.isEmpty()) return
@@ -224,24 +298,32 @@ class ProjectRepository(
         verseDao.update(verse.withProgress(updatedProgress))
     }
 
-    /** Clears cached text for a project (kept for ACTIVE projects too, e.g. on manual "clear cache"). */
-    suspend fun clearCache(projectId: String) = verseDao.clearAllText(projectId)
+    /**
+     * Clears cached text for a project (kept for ACTIVE projects too, e.g. on manual "clear cache").
+     * Pasted projects are skipped: their text is the only copy, not a cache.
+     */
+    suspend fun clearCache(projectId: String) {
+        if (!isPasted(projectId)) verseDao.clearAllText(projectId)
+    }
 
     suspend fun completeProject(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
         projectDao.update(project.copy(status = ProjectStatus.COMPLETED, completedAt = currentDateTime()))
-        verseDao.clearAllText(projectId)
+        clearCache(projectId)
     }
 
     suspend fun archiveProject(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
         projectDao.update(project.copy(status = ProjectStatus.ARCHIVED))
-        verseDao.clearAllText(projectId)
+        clearCache(projectId)
     }
 
     suspend fun deleteProject(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
+        val pasted = isPasted(projectId)
         projectDao.delete(project)
+        // A pasted project's Translation row belongs to it alone (see createPastedProject).
+        if (pasted) translationDao.deleteById(project.translationId)
     }
 
     suspend fun progressSummary(projectId: String): Pair<Int, Int> {

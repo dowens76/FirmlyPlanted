@@ -36,6 +36,8 @@ class TextFetcher(
             val usx = fetchBibleApi.getBookUsx(translation.sourceId, bookCode.lowercase())
             UsxVerseParser.parseRange(usx, startChapter, startVerse, endChapter, endVerse)
         }
+        // Pasted projects store their full text up front; ProjectRepository never fetches for them.
+        TranslationSource.PASTED -> throw IllegalStateException("Pasted text has no source to fetch from")
     }
 
     /**

@@ -18,6 +18,9 @@ interface TranslationDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(translations: List<TranslationEntity>)
+
+    @Query("DELETE FROM translations WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao

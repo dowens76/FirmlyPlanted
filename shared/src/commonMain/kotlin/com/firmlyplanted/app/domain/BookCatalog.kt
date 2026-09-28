@@ -88,6 +88,21 @@ object BookCatalog {
 
     fun byName(name: String): BookInfo? = books.find { it.name.equals(name, ignoreCase = true) }
 
+    /** Looks up a book by its USX/USFM code (e.g. "jhn", "1SA"), as used in bible.com links. */
+    fun byCode(code: String): BookInfo? = books.find { it.code.equals(code, ignoreCase = true) }
+
+    /** [byName], plus the common alternate names Bible apps use in their references. */
+    fun byNameOrAlias(name: String): BookInfo? {
+        val normalized = name.trim().replace(Regex("\\s+"), " ")
+        return byName(normalized) ?: NAME_ALIASES[normalized.lowercase()]?.let(::byName)
+    }
+
+    private val NAME_ALIASES = mapOf(
+        "psalm" to "Psalms",
+        "song of songs" to "Song of Solomon",
+        "song of songs (song of solomon)" to "Song of Solomon",
+    )
+
     /** Books available for a given translation, based on which testament(s) it covers. */
     fun booksFor(testaments: Set<Testament>): List<BookInfo> = books.filter { it.testament in testaments }
 }

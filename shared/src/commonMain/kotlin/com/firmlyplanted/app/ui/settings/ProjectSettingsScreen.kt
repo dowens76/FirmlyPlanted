@@ -76,9 +76,11 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save pace") }
 
-            Spacer(Modifier.height(24.dp))
-            OutlinedButton(onClick = { viewModel.clearCacheNow() }, modifier = Modifier.fillMaxWidth()) {
-                Text("Clear cached text now")
+            if (!viewModel.isPasted) {
+                Spacer(Modifier.height(24.dp))
+                OutlinedButton(onClick = { viewModel.clearCacheNow() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Clear cached text now")
+                }
             }
 
             Spacer(Modifier.height(32.dp))
@@ -86,7 +88,7 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
             Spacer(Modifier.height(16.dp))
 
             OutlinedButton(onClick = { showCompleteDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Mark Complete (clears cached text)")
+                Text(if (viewModel.isPasted) "Mark Complete" else "Mark Complete (clears cached text)")
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { viewModel.archive(onProjectRemoved) }, modifier = Modifier.fillMaxWidth()) {
@@ -105,7 +107,15 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
         AlertDialog(
             onDismissRequest = { showCompleteDialog = false },
             title = { Text("Mark this project complete?") },
-            text = { Text("This clears the small amount of Scripture text currently cached on this device for this project. Your progress history is kept.") },
+            text = {
+                Text(
+                    if (viewModel.isPasted) {
+                        "Your pasted text and progress history stay on this device until you delete the project."
+                    } else {
+                        "This clears the small amount of Scripture text currently cached on this device for this project. Your progress history is kept."
+                    },
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { showCompleteDialog = false; viewModel.markComplete(onProjectRemoved) }) { Text("Complete") }
             },

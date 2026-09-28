@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.data.repository.ScopeBlockedException
 import com.firmlyplanted.app.domain.BookCatalog
+import com.firmlyplanted.app.domain.BookInfo
 import com.firmlyplanted.app.domain.DefaultTranslations
 import com.firmlyplanted.app.domain.ScopeCheck
 import com.firmlyplanted.app.domain.Translation
@@ -85,7 +87,7 @@ fun NewProjectScreen(onCreated: (String) -> Unit, onCancel: () -> Unit) {
             when (viewModel.step) {
                 0 -> NameStep(viewModel)
                 1 -> TextStep(viewModel)
-                2 -> ScopeStep(viewModel)
+                2 -> if (viewModel.pasteMode) PastedScopeStep(viewModel) else ScopeStep(viewModel)
                 3 -> PaceStep(viewModel)
                 4 -> ConfirmStep(viewModel)
             }
@@ -122,8 +124,32 @@ private fun TextStep(vm: NewProjectViewModel) {
 
     DefaultTranslations.all.forEach { translation ->
         TranslationRow(translation, selected = vm.selectedTranslation?.id == translation.id) {
-            vm.selectedTranslation = translation
-            vm.book = ""
+            vm.chooseTranslation(translation)
+        }
+    }
+
+    ListItem(
+        headlineContent = { Text("Paste your own text") },
+        supportingContent = { Text("Verses copied from YouVersion or another Bible app, with their verse numbers") },
+        leadingContent = { RadioButton(selected = vm.pasteMode, onClick = { vm.choosePaste() }) },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (vm.pasteMode) {
+        OutlinedTextField(
+            value = vm.pastedText,
+            onValueChange = { vm.updatePastedText(it) },
+            label = { Text("Paste verses here") },
+            placeholder = { Text("16 For God so loved the world… 17 For God did not send…\nJohn 3:16-17 ESV") },
+            supportingText = {
+                Text("Keep the verse numbers. The reference line (e.g. \"John 3:16-17 ESV\") fills in the book and chapter for you.")
+            },
+            isError = vm.pasteResult?.isFailure == true,
+            minLines = 5,
+            maxLines = 12,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        vm.pasteResult?.exceptionOrNull()?.let { error ->
+            Text(error.message ?: "Couldn't read that text.", color = MaterialTheme.colorScheme.error)
         }
     }
 
@@ -150,15 +176,18 @@ private fun TextStep(vm: NewProjectViewModel) {
             else -> LazyColumn(Modifier.height(240.dp)) {
                 items(vm.moreResults, key = { it.id }) { translation ->
                     TranslationRow(translation, selected = vm.selectedTranslation?.id == translation.id) {
-                        vm.selectedTranslation = translation
-                        vm.book = ""
+                        vm.chooseTranslation(translation)
                     }
                 }
             }
         }
     }
 
-    StepNav(canProceed = vm.selectedTranslation != null, isLast = false, onNext = { vm.goTo(2) })
+    StepNav(
+        canProceed = if (vm.pasteMode) vm.pastedText.isNotBlank() else vm.selectedTranslation != null,
+        isLast = false,
+        onNext = { if (!vm.pasteMode || vm.readPastedText()) vm.goTo(2) },
+    )
 }
 
 @Composable
@@ -183,22 +212,7 @@ private fun ScopeStep(vm: NewProjectViewModel) {
     Text("Which passage do you want to memorize?", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(12.dp))
 
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = vm.book,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Book") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            books.forEach { book ->
-                DropdownMenuItem(text = { Text(book.name) }, onClick = { vm.selectBook(book.name); expanded = false })
-            }
-        }
-    }
+    BookDropdownField(vm.book, books) { vm.selectBook(it) }
 
     if (vm.book.isNotBlank() && !Versification.hasData(vm.book)) {
         Spacer(Modifier.height(4.dp))
@@ -246,6 +260,114 @@ private fun ScopeStep(vm: NewProjectViewModel) {
 
     val canProceed = vm.previewResult?.getOrNull()?.check == ScopeCheck.Ok
     StepNav(canProceed = canProceed, isLast = false, onNext = { vm.goTo(3) })
+}
+
+@Composable
+private fun BookDropdownField(value: String, books: List<BookInfo>, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Book") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            books.forEach { book ->
+                DropdownMenuItem(text = { Text(book.name) }, onClick = { onSelect(book.name); expanded = false })
+            }
+        }
+    }
+}
+
+/**
+ * Step 2 for pasted text: confirm or correct what was read from the paste, preview how it was
+ * split into verses, and remind the user to stay within that version's verse limit.
+ */
+@Composable
+private fun PastedScopeStep(vm: NewProjectViewModel) {
+    val passage = vm.pasteResult?.getOrNull() ?: return
+    val verses = vm.pastedVerses
+    val label = vm.pastedLabel.trim().ifEmpty { "this version" }
+
+    Text("Check the pasted passage", style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(12.dp))
+    OutlinedTextField(
+        value = vm.pastedLabel,
+        onValueChange = { vm.pastedLabel = it },
+        label = { Text("Translation (e.g. ESV)") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    BookDropdownField(vm.book, BookCatalog.books) { vm.selectPastedBook(it) }
+    if (vm.book.isBlank()) {
+        Text("Pick the book this passage is from.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    Spacer(Modifier.height(8.dp))
+    val chapterOptions = remember(vm.book, vm.pastedStartChapter) {
+        (1..maxOf(Versification.chapterCount(vm.book), vm.pastedStartChapter)).toList()
+    }
+    IntDropdownField("Starting chapter", vm.pastedStartChapter, chapterOptions, Modifier.fillMaxWidth()) {
+        vm.selectPastedStartChapter(it)
+    }
+
+    Spacer(Modifier.height(16.dp))
+    val first = verses.first()
+    val last = verses.last()
+    Text(
+        "Found ${verses.size} ${if (verses.size == 1) "verse" else "verses"}: " +
+            "${first.chapter}:${first.verse}" + if (verses.size > 1) " – ${last.chapter}:${last.verse}" else "",
+        style = MaterialTheme.typography.titleSmall,
+    )
+    val ref = passage.reference
+    if (ref.startVerse != null && ref.endVerse != null && ref.startChapter == ref.endChapter) {
+        val expected = ref.endVerse - ref.startVerse + 1
+        if (expected != verses.size) {
+            Text(
+                "The reference covers $expected verses, but ${verses.size} were found — check that each verse starts with its number.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+    passage.skippedPrefix?.let { skipped ->
+        Text(
+            "Skipped text before the first verse number: \"${skipped.take(80)}${if (skipped.length > 80) "…" else ""}\"",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(Modifier.height(8.dp))
+    Card(Modifier.fillMaxWidth()) {
+        LazyColumn(Modifier.heightIn(max = 240.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(verses, key = { "${it.chapter}:${it.verse}" }) { verse ->
+                Text("${verse.chapter}:${verse.verse}  ${verse.text}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Text(
+            "You're about to store ${verses.size} ${if (verses.size == 1) "verse" else "verses"} of $label on this device. " +
+                "Check $label's copyright terms for any limit on how many verses may be stored or quoted, and stay within it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.padding(12.dp),
+        )
+    }
+
+    StepNav(
+        canProceed = vm.book.isNotBlank() && verses.isNotEmpty(),
+        isLast = false,
+        onNext = { vm.confirmPastedScope(); vm.goTo(3) },
+    )
 }
 
 /** A dropdown of valid numbers (chapters or verses) — see Versification for where the options come from. */

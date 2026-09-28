@@ -28,6 +28,7 @@ class AppContainer(
     val projectRepository = ProjectRepository(
         projectDao = database.memoryProjectDao(),
         verseDao = database.verseDao(),
+        translationDao = database.translationDao(),
         textFetcher = textFetcher,
     )
 }

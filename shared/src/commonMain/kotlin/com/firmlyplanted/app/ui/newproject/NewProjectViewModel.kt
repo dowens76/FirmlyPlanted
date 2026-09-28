@@ -9,6 +9,10 @@ import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.data.repository.ScopePreview
 import com.firmlyplanted.app.data.repository.TranslationRepository
 import com.firmlyplanted.app.domain.DefaultTranslations
+import com.firmlyplanted.app.domain.PastedPassage
+import com.firmlyplanted.app.domain.PastedTextParser
+import com.firmlyplanted.app.domain.PastedTranslations
+import com.firmlyplanted.app.domain.PastedVerse
 import com.firmlyplanted.app.domain.Translation
 import com.firmlyplanted.app.domain.Versification
 import kotlinx.coroutines.launch
@@ -31,6 +35,82 @@ class NewProjectViewModel(
     var moreError by mutableStateOf<String?>(null)
         private set
     var showMore by mutableStateOf(false)
+
+    fun chooseTranslation(translation: Translation) {
+        pasteMode = false
+        selectedTranslation = translation
+        book = ""
+    }
+
+    // --- "Paste your own text" -----------------------------------------------------------------
+
+    var pasteMode by mutableStateOf(false)
+        private set
+    var pastedText by mutableStateOf("")
+        private set
+    var pasteResult by mutableStateOf<Result<PastedPassage>?>(null)
+        private set
+    /** Translation name shown on the project (prefilled from the reference, e.g. "ESV"). */
+    var pastedLabel by mutableStateOf("")
+    var pastedStartChapter by mutableStateOf(1)
+        private set
+
+    fun choosePaste() {
+        pasteMode = true
+        selectedTranslation = null
+        book = ""
+    }
+
+    fun updatePastedText(text: String) {
+        pastedText = text
+        pasteResult = null
+    }
+
+    /** Splits the pasted text into verses and prefills book/chapter/translation; false if it can't be read. */
+    fun readPastedText(): Boolean {
+        val result = PastedTextParser.parse(pastedText)
+        pasteResult = result
+        val passage = result.getOrNull() ?: return false
+        book = passage.reference.book?.name ?: ""
+        pastedStartChapter = passage.reference.startChapter ?: 1
+        passage.reference.translationAbbrev?.let { pastedLabel = it }
+        return true
+    }
+
+    fun selectPastedBook(name: String) {
+        book = name
+    }
+
+    fun selectPastedStartChapter(chapter: Int) {
+        pastedStartChapter = chapter
+    }
+
+    /** The pasted verses, renumbered if the starting chapter was corrected. */
+    val pastedVerses: List<PastedVerse>
+        get() {
+            val passage = pasteResult?.getOrNull() ?: return emptyList()
+            val offset = pastedStartChapter - (passage.reference.startChapter ?: 1)
+            return passage.verses.map { it.copy(chapter = it.chapter + offset) }
+        }
+
+    private val pastedLanguage: String
+        get() = PastedTextParser.detectLanguage(pastedVerses.joinToString(" ") { it.text })
+
+    /** Fills the scope and a preview translation from the paste, for the pace and confirm steps. */
+    fun confirmPastedScope() {
+        val verses = pastedVerses
+        if (verses.isEmpty()) return
+        startChapter = verses.first().chapter
+        startVerse = verses.first().verse
+        endChapter = verses.last().chapter
+        endVerse = verses.last().verse
+        selectedTranslation = PastedTranslations.create(
+            id = PastedTranslations.ID_PREFIX + "preview",
+            label = pastedLabel,
+            language = pastedLanguage,
+            link = pasteResult?.getOrNull()?.reference?.link,
+        )
+    }
 
     var book by mutableStateOf("")
     var startChapter by mutableStateOf(1)
@@ -119,11 +199,28 @@ class NewProjectViewModel(
 
     fun createProject() {
         val translation = selectedTranslation ?: return
+        val projectName = name.ifBlank { "$book $startChapter:$startVerse-$endChapter:$endVerse" }
         creating = true
+        if (pasteMode) {
+            viewModelScope.launch {
+                createResult = projectRepository.createPastedProject(
+                    name = projectName,
+                    bookName = book,
+                    verses = pastedVerses,
+                    translationLabel = pastedLabel,
+                    language = pastedLanguage,
+                    link = pasteResult?.getOrNull()?.reference?.link,
+                    newVersesPerDay = newPerDay,
+                    reviewVersesPerDay = reviewPerDay,
+                )
+                creating = false
+            }
+            return
+        }
         viewModelScope.launch {
             if (!translation.isDefault) translationRepository.cacheTranslation(translation)
             createResult = projectRepository.createProject(
-                name = name.ifBlank { "$book $startChapter:$startVerse-$endChapter:$endVerse" },
+                name = projectName,
                 translation = translation,
                 bookName = book,
                 startChapter = startChapter,

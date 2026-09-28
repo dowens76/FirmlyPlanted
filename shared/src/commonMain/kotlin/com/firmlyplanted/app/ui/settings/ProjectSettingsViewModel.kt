@@ -1,5 +1,8 @@
 package com.firmlyplanted.app.ui.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
@@ -20,6 +23,14 @@ class ProjectSettingsViewModel(
 
     val verses: StateFlow<List<VerseEntity>> = projectRepository.observeVerses(projectId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Pasted projects keep their full text (it's the only copy), so there's no cache to clear. */
+    var isPasted by mutableStateOf(false)
+        private set
+
+    init {
+        viewModelScope.launch { isPasted = projectRepository.isPasted(projectId) }
+    }
 
     fun updatePace(newVersesPerDay: Int, reviewVersesPerDay: Int) {
         viewModelScope.launch { projectRepository.updatePace(projectId, newVersesPerDay, reviewVersesPerDay) }

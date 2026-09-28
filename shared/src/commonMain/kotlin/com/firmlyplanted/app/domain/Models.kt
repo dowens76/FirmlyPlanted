@@ -4,6 +4,8 @@ package com.firmlyplanted.app.domain
 enum class TranslationSource {
     ESV_API,
     FETCH_BIBLE,
+    /** Text the user pasted in (e.g. copied from YouVersion); stored in full, since there's nothing to re-fetch. */
+    PASTED,
 }
 
 enum class ProjectStatus {
