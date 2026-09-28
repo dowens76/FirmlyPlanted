@@ -3,10 +3,7 @@ package com.firmlyplanted.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.CompositionLocalProvider
-import com.firmlyplanted.app.ui.LocalAppContainer
-import com.firmlyplanted.app.ui.navigation.FirmlyPlantedNavHost
-import com.firmlyplanted.app.ui.theme.FirmlyPlantedTheme
+import com.firmlyplanted.app.ui.FirmlyPlantedRoot
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,11 +11,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as FirmlyPlantedApp).container
 
         setContent {
-            FirmlyPlantedTheme {
-                CompositionLocalProvider(LocalAppContainer provides container) {
-                    FirmlyPlantedNavHost()
-                }
-            }
+            FirmlyPlantedRoot(container)
         }
     }
 }

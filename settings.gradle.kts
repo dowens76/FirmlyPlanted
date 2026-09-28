@@ -19,3 +19,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "FirmlyPlanted"
 include(":app")
+include(":shared")
