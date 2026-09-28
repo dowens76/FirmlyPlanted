@@ -32,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -340,6 +342,7 @@ private fun PastedScopeStep(vm: NewProjectViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    HeadingsFound(passage.headings, vm)
     Spacer(Modifier.height(8.dp))
     Card(Modifier.fillMaxWidth()) {
         LazyColumn(Modifier.heightIn(max = 240.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -368,6 +371,28 @@ private fun PastedScopeStep(vm: NewProjectViewModel) {
         isLast = false,
         onNext = { vm.confirmPastedScope(); vm.goTo(3) },
     )
+}
+
+/**
+ * Lists the lines left out as headings, with a switch to keep them as verse text instead — the
+ * detection is a best guess, so a real verse line it caught can be put back.
+ */
+@Composable
+private fun HeadingsFound(headings: List<String>, vm: NewProjectViewModel) {
+    // Also shown with no headings while switched off, so the switch can be turned back on.
+    if (headings.isEmpty() && vm.leaveOutHeadings) return
+    Spacer(Modifier.height(8.dp))
+    if (headings.isNotEmpty()) {
+        Text(
+            "Left out as headings: " + headings.joinToString(" · ") { "\"$it\"" },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Leave out headings", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Switch(checked = vm.leaveOutHeadings, onCheckedChange = { vm.updateLeaveOutHeadings(it) })
+    }
 }
 
 /** A dropdown of valid numbers (chapters or verses) — see Versification for where the options come from. */

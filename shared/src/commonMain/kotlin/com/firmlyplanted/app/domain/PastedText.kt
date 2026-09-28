@@ -24,6 +24,8 @@ data class PastedPassage(
     val verses: List<PastedVerse>,
     /** Text found before the first verse number that couldn't be assigned to a verse (e.g. a heading). */
     val skippedPrefix: String? = null,
+    /** Section headings, chapter titles and Psalm superscriptions left out of the verses, in order. */
+    val headings: List<String> = emptyList(),
 )
 
 /**
@@ -36,7 +38,11 @@ data class PastedPassage(
  */
 object PastedTextParser {
 
-    fun parse(raw: String): Result<PastedPassage> {
+    /**
+     * @param detectHeadings leave out lines that look like section headings (see [HeadingDetector]);
+     *   pass false to keep every line as verse text.
+     */
+    fun parse(raw: String, detectHeadings: Boolean = true): Result<PastedPassage> {
         val lines = normalize(raw).lines().toMutableList()
 
         val link = extractLink(lines)
@@ -63,22 +69,35 @@ object PastedTextParser {
         }
 
         val verses = mutableListOf<PastedVerse>()
+        val headings = mutableListOf<String>()
         var skippedPrefix: String? = null
-        val prefix = clean(body.substring(0, markers.first().start))
-        if (prefix.isNotEmpty()) {
+        val rawPrefix = body.substring(0, markers.first().start)
+        if (rawPrefix.isNotBlank()) {
             // First verse copied without its number (e.g. "For God so loved… 17 For God did not…").
             if (reference.startVerse != null && markers.first().verse == reference.startVerse + 1) {
-                verses += PastedVerse(baseChapter, reference.startVerse, prefix)
+                val (verseText, leading) = if (detectHeadings) HeadingDetector.stripLeading(rawPrefix) else rawPrefix to emptyList()
+                headings += leading
+                verses += PastedVerse(baseChapter, reference.startVerse, clean(verseText))
             } else {
-                skippedPrefix = prefix
+                skippedPrefix = clean(rawPrefix)
             }
         }
         markers.forEachIndexed { index, marker ->
-            val end = markers.getOrNull(index + 1)?.start ?: body.length
-            val text = clean(body.substring(marker.textStart, end))
+            val next = markers.getOrNull(index + 1)
+            var segment = body.substring(marker.textStart, next?.start ?: body.length)
+            if (detectHeadings) {
+                val (kept, found) = HeadingDetector.stripTrailing(
+                    segment,
+                    beforeNewChapter = next != null && next.chapterOffset > marker.chapterOffset,
+                    atEnd = next == null,
+                )
+                segment = kept
+                headings += found
+            }
+            val text = clean(segment)
             if (text.isNotEmpty()) verses += PastedVerse(baseChapter + marker.chapterOffset, marker.verse, text)
         }
-        return Result.success(PastedPassage(reference, verses, skippedPrefix))
+        return Result.success(PastedPassage(reference, verses, skippedPrefix, headings))
     }
 
     /** Guesses the script so Hebrew/Greek get the right font and direction (see Fonts.kt). */
@@ -225,7 +244,10 @@ object PastedTextParser {
             }
             var j = i
             while (j < body.length && body[j].isDigit()) j++
-            val followedByText = j < body.length && body[j] !in NOT_AFTER_NUMBER && body.substring(j).isNotBlank()
+            // A verse number is followed by its text on the same line; a number that ends its line
+            // belongs to a title ("Psalm 3") instead.
+            val restOfLine = body.substring(j, body.indexOf('\n', j).takeIf { it >= 0 } ?: body.length)
+            val followedByText = j < body.length && body[j] !in NOT_AFTER_NUMBER && restOfLine.isNotBlank()
             val number = if (j - i <= 3 && followedByText) body.substring(i, j).toInt() else null
 
             if (number != null) {
@@ -271,4 +293,98 @@ object PastedTranslations {
             testaments = setOf(Testament.OLD, Testament.NEW),
         )
     }
+}
+
+/**
+ * Spots headings in pasted text: section headings ("The Word Became Flesh"), parallel-passage
+ * lines ("(Mark 1:9-11)"), chapter titles ("Psalm 2") and Psalm superscriptions ("A Psalm of
+ * David."). Copies from most Bible apps and sites put these on their own line between the end of
+ * one verse and the next verse number. A verse's last line has the same shape — especially in
+ * poetry — so a line only counts as a heading when its wording also looks like one.
+ */
+internal object HeadingDetector {
+
+    /** At most this many stacked lines are removed at one spot (heading + subheading + reference). */
+    private const val MAX_STACK = 3
+
+    /**
+     * Removes heading lines from the end of one verse's text (everything between its number and
+     * the next). Returns the remaining verse text and the headings found, in document order.
+     */
+    fun stripTrailing(segment: String, beforeNewChapter: Boolean, atEnd: Boolean): Pair<String, List<String>> {
+        val lines = segment.split('\n').toMutableList()
+        val found = ArrayDeque<String>()
+        while (found.size < MAX_STACK) {
+            while (lines.size > 1 && lines.last().isBlank()) lines.removeAt(lines.lastIndex)
+            // A heading needs its own line, with verse text still above it.
+            if (lines.size < 2 || lines.dropLast(1).all { it.isBlank() }) break
+            val candidate = lines.last().trim()
+            val blankBefore = lines[lines.lastIndex - 1].isBlank()
+            // Trailing text at the very end of a paste is usually just the last verse's final line.
+            if (atEnd && !blankBefore) break
+            if (!isHeading(candidate, blankBefore, beforeNewChapter)) break
+            found.addFirst(candidate)
+            lines.removeAt(lines.lastIndex)
+        }
+        return lines.joinToString("\n") to found.toList()
+    }
+
+    /** Removes heading lines from the start of an unnumbered first verse. */
+    fun stripLeading(segment: String): Pair<String, List<String>> {
+        val lines = segment.split('\n').dropWhile { it.isBlank() }.toMutableList()
+        val found = mutableListOf<String>()
+        while (found.size < MAX_STACK && lines.size > 1) {
+            val candidate = lines.first().trim()
+            val rest = lines.drop(1)
+            if (rest.all { it.isBlank() }) break
+            if (!isHeading(candidate, blankBefore = rest.first().isBlank(), beforeNewChapter = false)) break
+            found += candidate
+            lines.removeAt(0)
+            while (lines.isNotEmpty() && lines.first().isBlank()) lines.removeAt(0)
+        }
+        return lines.joinToString("\n") to found
+    }
+
+    fun isHeading(line: String, blankBefore: Boolean, beforeNewChapter: Boolean): Boolean {
+        if (line.isEmpty() || line.length > 120) return false
+        val words = WORD.findAll(line).map { it.value }.toList()
+        if (words.size > 16 || line.last() in ",;:" || line.equals("Selah", ignoreCase = true)) return false
+
+        if (isParallelReference(line)) return true
+        if (beforeNewChapter && SUPERSCRIPTION_STARTS.any { line.startsWith(it, ignoreCase = true) }) return true
+
+        val endsLikeSentence = line.trimEnd('”', '’', '"', '\'', ')').lastOrNull()?.let { it in ".!?׃" } == true
+        if (beforeNewChapter && blankBefore && (!endsLikeSentence || isTitleCase(words))) return true
+        if (endsLikeSentence) return false
+        if (isTitleCase(words)) return true
+        // Scripts without capital letters (e.g. Hebrew) can't be title case; lean on the blank line.
+        return blankBefore && words.isNotEmpty() && words.none { w -> w.any { it.isUpperCase() || it.isLowerCase() } }
+    }
+
+    private val WORD = Regex("[\\p{L}\\p{M}'’]+")
+
+    /** A line that is only a bracketed cross-reference, e.g. "(Mark 1:9-11; Luke 3:21-22)". */
+    private fun isParallelReference(line: String): Boolean =
+        line.startsWith("(") && line.endsWith(")") && Regex("\\d+:\\d+").containsMatchIn(line)
+
+    /** "Jesus Calls the First Disciples": every significant word capitalized (≥ 75%), first word always. */
+    private fun isTitleCase(words: List<String>): Boolean {
+        if (words.isEmpty() || !words.first().first().isUpperCase()) return false
+        val significant = words.drop(1).filter { it.lowercase() !in SMALL_WORDS }
+        if (significant.isEmpty()) return words.size == 1 && words.first().length > 1
+        val capitalized = significant.count { it.first().isUpperCase() }
+        return capitalized * 4 >= significant.size * 3
+    }
+
+    private val SMALL_WORDS = setOf(
+        "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into", "nor", "of", "on",
+        "or", "over", "the", "to", "upon", "with",
+    )
+
+    /** How English Bibles open a Psalm's (unnumbered) superscription. */
+    private val SUPERSCRIPTION_STARTS = listOf(
+        "A Psalm", "A Song", "A Maskil", "A Miktam", "A Prayer", "A Shiggaion",
+        "To the choirmaster", "For the director", "For the choir director", "For the leader",
+        "Of David", "Of Solomon", "Of Asaph", "Of the Sons of Korah",
+    )
 }

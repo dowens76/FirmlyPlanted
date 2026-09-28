@@ -113,6 +113,97 @@ class PastedTextParserTest {
         assertEquals(listOf(1, 2), passage.verses.map { it.verse })
     }
 
+    // --- Headings -------------------------------------------------------------------------------
+
+    @Test
+    fun sectionHeadingBetweenVersesIsLeftOut() {
+        val passage = parse(
+            "13 who were born not of blood, but of God.\n\nThe Word Became Flesh\n\n" +
+                "14 The Word became flesh, and lived among us.\nJohn 1:13-14",
+        )
+
+        assertEquals("who were born not of blood, but of God.", passage.verses[0].text)
+        assertEquals("The Word became flesh, and lived among us.", passage.verses[1].text)
+        assertEquals(listOf("The Word Became Flesh"), passage.headings)
+    }
+
+    @Test
+    fun headingWithoutBlankLinesAndStackedParallelReference() {
+        val passage = parse(
+            "12 He will burn up the chaff with unquenchable fire.\nThe Baptism of Jesus\n(Mark 1:9-11; Luke 3:21-22)\n" +
+                "13 Then Jesus came from Galilee to the Jordan.\nMatthew 3:12-13",
+        )
+
+        assertEquals(listOf(12, 13), passage.verses.map { it.verse })
+        assertEquals("He will burn up the chaff with unquenchable fire.", passage.verses[0].text)
+        assertEquals(listOf("The Baptism of Jesus", "(Mark 1:9-11; Luke 3:21-22)"), passage.headings)
+    }
+
+    @Test
+    fun poetryLineBreaksStayInTheVerse() {
+        val passage = parse(
+            "1 Blessed is the man\nwho walks not in the counsel of the wicked,\nnor stands in the way of sinners,\n" +
+                "nor sits in the seat of scoffers;\n2 but his delight is in the law of the LORD,\n" +
+                "and on his law he meditates day and night.\nPsalm 1:1-2",
+        )
+
+        assertTrue(passage.verses[0].text.endsWith("nor sits in the seat of scoffers;"))
+        assertTrue(passage.verses[0].text.startsWith("Blessed is the man who walks not"))
+        assertEquals(emptyList(), passage.headings)
+    }
+
+    @Test
+    fun lastLineWithoutPunctuationIsNotMistakenForAHeading() {
+        val passage = parse("3 And God said to them\n4 Go into the city.\n5 And they went into the city of David\nGenesis 9:3-5")
+
+        assertEquals("And God said to them", passage.verses[0].text)
+        assertEquals("And they went into the city of David", passage.verses[2].text)
+        assertEquals(emptyList(), passage.headings)
+    }
+
+    @Test
+    fun chapterTitlesAndPsalmSuperscriptionsAreLeftOut() {
+        val passage = parse(
+            "6 For the LORD knows the way of the righteous, but the way of the wicked shall perish.\n\nPsalm 2\n\n" +
+                "1 Why do the nations rage and the peoples plot in vain?\n" +
+                "2 The kings of the earth set themselves.\n\nPsalm 3\n" +
+                "A Psalm of David, when he fled from Absalom his son.\n" +
+                "1 O LORD, how many are my foes!\nPsalm 1:6-3:1",
+        )
+
+        assertEquals(listOf(1 to 6, 2 to 1, 2 to 2, 3 to 1), passage.verses.map { it.chapter to it.verse })
+        assertTrue(passage.verses[0].text.endsWith("shall perish."))
+        assertEquals("The kings of the earth set themselves.", passage.verses[2].text)
+        assertEquals(listOf("Psalm 2", "Psalm 3", "A Psalm of David, when he fled from Absalom his son."), passage.headings)
+    }
+
+    @Test
+    fun uncasedScriptHeadingIsDetectedWithABlankLine() {
+        val passage = parse("1 בְּרֵאשִׁית בָּרָא אֱלֹהִים׃\n\nבריאת העולם\n\n2 וְהָאָרֶץ הָיְתָה תֹהוּ׃\nGenesis 1:1-2")
+
+        assertEquals(listOf("בריאת העולם"), passage.headings)
+        assertEquals("בְּרֵאשִׁית בָּרָא אֱלֹהִים׃", passage.verses[0].text)
+    }
+
+    @Test
+    fun headingBeforeAnUnnumberedFirstVerse() {
+        val passage = parse("God's Love for the World\nFor God so loved the world. 17 For God didn't send his Son.\nJohn 3:16-17")
+
+        assertEquals(listOf("God's Love for the World"), passage.headings)
+        assertEquals("For God so loved the world.", passage.verses[0].text)
+    }
+
+    @Test
+    fun headingDetectionCanBeTurnedOff() {
+        val passage = PastedTextParser.parse(
+            "13 born of God.\n\nThe Word Became Flesh\n\n14 The Word became flesh.\nJohn 1:13-14",
+            detectHeadings = false,
+        ).getOrThrow()
+
+        assertEquals("born of God. The Word Became Flesh", passage.verses[0].text)
+        assertEquals(emptyList(), passage.headings)
+    }
+
     @Test
     fun textWithNoNumbersAndNoReferenceIsRejected() {
         assertTrue(PastedTextParser.parse("For God so loved the world.").isFailure)

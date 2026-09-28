@@ -68,13 +68,23 @@ class NewProjectViewModel(
 
     /** Splits the pasted text into verses and prefills book/chapter/translation; false if it can't be read. */
     fun readPastedText(): Boolean {
-        val result = PastedTextParser.parse(pastedText)
+        val result = PastedTextParser.parse(pastedText, detectHeadings = leaveOutHeadings)
         pasteResult = result
         val passage = result.getOrNull() ?: return false
         book = passage.reference.book?.name ?: ""
         pastedStartChapter = passage.reference.startChapter ?: 1
         passage.reference.translationAbbrev?.let { pastedLabel = it }
         return true
+    }
+
+    /** Whether lines that look like headings are left out of the verses (on by default). */
+    var leaveOutHeadings by mutableStateOf(true)
+        private set
+
+    /** Re-splits the paste with or without heading detection, keeping any book/chapter/label edits. */
+    fun updateLeaveOutHeadings(leaveOut: Boolean) {
+        leaveOutHeadings = leaveOut
+        pasteResult = PastedTextParser.parse(pastedText, detectHeadings = leaveOut)
     }
 
     fun selectPastedBook(name: String) {
