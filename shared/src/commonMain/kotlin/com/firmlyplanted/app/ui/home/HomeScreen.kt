@@ -13,9 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +48,7 @@ fun HomeScreen(
     onOpenProject: (String) -> Unit,
     onNewProject: () -> Unit,
     onAbout: () -> Unit,
+    onBackup: () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val viewModel: HomeViewModel = viewModel(factory = simpleFactory { HomeViewModel(container.projectRepository) })
@@ -56,8 +59,19 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Firmly Planted") },
                 actions = {
-                    IconButton(onClick = onAbout) {
-                        Icon(Icons.Default.Info, contentDescription = "About & Licenses")
+                    var menuOpen by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Backup & Restore") },
+                            onClick = { menuOpen = false; onBackup() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("About & Licenses") },
+                            onClick = { menuOpen = false; onAbout() },
+                        )
                     }
                 },
             )

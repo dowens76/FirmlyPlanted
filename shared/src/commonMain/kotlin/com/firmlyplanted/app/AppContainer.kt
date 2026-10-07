@@ -2,6 +2,7 @@ package com.firmlyplanted.app
 
 import com.firmlyplanted.app.data.local.AppDatabase
 import com.firmlyplanted.app.data.remote.NetworkModule
+import com.firmlyplanted.app.data.repository.BackupRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.data.repository.TextFetcher
 import com.firmlyplanted.app.data.repository.TranslationRepository
@@ -26,6 +27,8 @@ class AppContainer(
         fetchBibleApi = NetworkModule.fetchBibleApi,
         esvApiKey = Secrets.ESV_API_KEY,
     )
+
+    val backupRepository = BackupRepository(database, appVersion)
 
     val projectRepository = ProjectRepository(
         projectDao = database.memoryProjectDao(),

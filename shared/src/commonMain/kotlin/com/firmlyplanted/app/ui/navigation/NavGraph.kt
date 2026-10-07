@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
 import com.firmlyplanted.app.ui.about.AboutLicensesScreen
+import com.firmlyplanted.app.ui.backup.BackupScreen
 import com.firmlyplanted.app.ui.home.HomeScreen
 import com.firmlyplanted.app.ui.newproject.NewProjectScreen
 import com.firmlyplanted.app.ui.session.GroupReviewScreen
@@ -26,6 +27,7 @@ private object Routes {
     const val GROUP_REVIEW = "groupReview/{projectId}"
     const val SETTINGS = "settings/{projectId}"
     const val ABOUT = "about"
+    const val BACKUP = "backup"
     const val READ_MORE = "readMore/{projectId}"
 
     fun today(id: String) = "today/$id"
@@ -46,6 +48,7 @@ fun FirmlyPlantedNavHost(navController: NavHostController = rememberNavControlle
                 onOpenProject = { navController.navigate(Routes.today(it)) },
                 onNewProject = { navController.navigate(Routes.NEW_PROJECT) },
                 onAbout = { navController.navigate(Routes.ABOUT) },
+                onBackup = { navController.navigate(Routes.BACKUP) },
             )
         }
         composable(Routes.NEW_PROJECT) {
@@ -114,6 +117,9 @@ fun FirmlyPlantedNavHost(navController: NavHostController = rememberNavControlle
         ) { backStackEntry ->
             val projectId = backStackEntry.stringArg("projectId") ?: return@composable
             ReadMoreScreen(projectId = projectId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.BACKUP) {
+            BackupScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.ABOUT) {
             AboutLicensesScreen(onBack = { navController.popBackStack() })

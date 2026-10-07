@@ -93,6 +93,7 @@ kotlin {
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
         }
         androidMain.dependencies {
+            implementation("androidx.activity:activity-compose:1.9.2")
             implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
         }
         iosMain.dependencies {

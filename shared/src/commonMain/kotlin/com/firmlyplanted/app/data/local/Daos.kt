@@ -34,6 +34,13 @@ interface MemoryProjectDao {
     @Query("SELECT * FROM memory_projects WHERE id = :id")
     suspend fun getById(id: String): MemoryProjectEntity?
 
+    @Query("SELECT * FROM memory_projects ORDER BY createdAt ASC")
+    suspend fun getAll(): List<MemoryProjectEntity>
+
+    /** Also deletes the project's verses (cascade). */
+    @Query("DELETE FROM memory_projects WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Insert
     suspend fun insert(project: MemoryProjectEntity)
 
