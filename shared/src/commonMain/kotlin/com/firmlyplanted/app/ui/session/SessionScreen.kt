@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +47,7 @@ import com.firmlyplanted.app.ui.theme.scriptureTextStyle
 import kotlin.math.abs
 
 @Composable
-fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
+fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SessionViewModel = viewModel(
         factory = simpleFactory { SessionViewModel(projectId, container.projectRepository, container.translationRepository) },
@@ -55,11 +56,16 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
     val verseFontFamily = fontFamilyForLanguage(viewModel.translation?.language)
     val verseIsRtl = isRtlLanguage(viewModel.translation?.language)
 
+    // Every session ends with a review of the whole passage learned so far, which then shows
+    // the session-complete message.
+    LaunchedEffect(viewModel.finished) {
+        if (viewModel.finished) onReviewPassage()
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Today's Session") }) }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when {
-                viewModel.loading -> CircularProgressIndicator()
-                viewModel.finished -> SessionComplete(onDone = { onDone(viewModel.queue) })
+                viewModel.loading || viewModel.finished -> CircularProgressIndicator()
                 else -> {
                     val verse = verses.find { it.id == viewModel.currentVerseId() }
                     if (verse == null) {
@@ -95,8 +101,8 @@ fun SessionScreen(projectId: String, onDone: (List<String>) -> Unit) {
                             }
                             Spacer(Modifier.height(24.dp))
                             SlowDownOptions(
-                                onFinishSession = { onDone(emptyList()) },
-                                onSkipToFullPassageReview = { onDone(viewModel.reviewOnlyQueueIds()) },
+                                onFinishSession = onFinish,
+                                onSkipToFullPassageReview = onReviewPassage,
                             )
                         }
                     }
@@ -331,16 +337,5 @@ private fun SlowDownOptions(onFinishSession: () -> Unit, onSkipToFullPassageRevi
         TextButton(onClick = onSkipToFullPassageReview, modifier = Modifier.weight(1f)) {
             Text("Skip to full passage review")
         }
-    }
-}
-
-@Composable
-private fun SessionComplete(onDone: () -> Unit) {
-    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Session complete!", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        Text("Come back tomorrow for more.", style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(20.dp))
-        Button(onClick = onDone) { Text("Done") }
     }
 }

@@ -282,6 +282,29 @@ class ProjectRepository(
         verseDao.evictTextOutside(projectId, keepVerses.map { it.id })
     }
 
+    /**
+     * Every verse introduced so far, in passage order, for the end-of-session passage review.
+     * Older verses may have had their text evicted from the rolling cache; when online, that text
+     * is fetched for display only and deliberately not persisted, so the cache stays within its
+     * window (and any license cap). Offline, those verses come back with null text.
+     */
+    suspend fun loadLearnedPassage(projectId: String, translation: Translation?, isOnline: Boolean): List<VerseEntity> {
+        val learned = verseDao.getForProject(projectId)
+            .filter { it.addedDate != null }
+            .sortedBy { it.orderIndex }
+        val missing = learned.filter { it.text == null }
+        if (missing.isEmpty() || translation == null || !isOnline) return learned
+
+        val project = projectDao.getById(projectId) ?: return learned
+        val bookCode = BookCatalog.byName(project.book)?.code ?: project.book
+        val fetched = runCatching {
+            textFetcher.fetchText(translation, project.book, bookCode, missing.map { TextRef(it.chapter, it.verseNumber) })
+        }.getOrDefault(emptyMap())
+        return learned.map { verse ->
+            if (verse.text != null) verse else verse.copy(text = fetched[TextRef(verse.chapter, verse.verseNumber)])
+        }
+    }
+
     suspend fun updatePace(projectId: String, newVersesPerDay: Int, reviewVersesPerDay: Int) {
         val project = projectDao.getById(projectId) ?: return
         projectDao.update(project.copy(newVersesPerDay = newVersesPerDay, reviewVersesPerDay = reviewVersesPerDay))
