@@ -1,6 +1,7 @@
 package com.firmlyplanted.app
 
 import android.app.Application
+import androidx.core.content.pm.PackageInfoCompat
 import com.firmlyplanted.app.data.local.createAppDatabase
 import com.firmlyplanted.app.data.remote.Connectivity
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +17,9 @@ class FirmlyPlantedApp : Application() {
         container = AppContainer(
             database = createAppDatabase(this),
             isOnline = { Connectivity.isOnline(this) },
+            appVersion = packageManager.getPackageInfo(packageName, 0).let { info ->
+                "${info.versionName} (${PackageInfoCompat.getLongVersionCode(info)})"
+            },
         )
         CoroutineScope(Dispatchers.IO).launch {
             container.translationRepository.ensureDefaultsSeeded()

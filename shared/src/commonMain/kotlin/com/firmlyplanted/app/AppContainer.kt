@@ -13,6 +13,8 @@ class AppContainer(
     database: AppDatabase,
     /** Whether a network connection is currently available (checked before fetching verse text). */
     val isOnline: () -> Boolean,
+    /** The installed app's version and build number, e.g. "0.1.1 (6)", read from the platform. */
+    val appVersion: String,
 ) {
     val translationRepository = TranslationRepository(
         translationDao = database.translationDao(),

@@ -21,10 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.firmlyplanted.app.domain.DefaultTranslations
+import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.resolveCopyrightNotice
 
 @Composable
 fun AboutLicensesScreen(onBack: () -> Unit) {
+    val appVersion = LocalAppContainer.current.appVersion
     Scaffold(
         topBar = {
             TopAppBar(
@@ -83,7 +85,7 @@ fun AboutLicensesScreen(onBack: () -> Unit) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Firmly Planted app", style = MaterialTheme.typography.titleSmall)
+                        Text("Firmly Planted app — version $appVersion", style = MaterialTheme.typography.titleSmall)
                         Text("Licensed under the MIT License. Source and full text of all licenses are in this app's repository.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
