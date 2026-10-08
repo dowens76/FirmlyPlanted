@@ -178,6 +178,34 @@ private fun NewVerseCard(text: String?, fontFamily: FontFamily, isRtl: Boolean, 
     }
 }
 
+/** A small starting nudge offered while a verse is still blank for reciting. */
+internal enum class RecallHint {
+    NONE, FIRST_WORD, FIRST_LETTER;
+
+    fun textFor(verseText: String): String? = when (this) {
+        NONE -> null
+        FIRST_WORD -> VerseMasking.firstWords(verseText, count = 1)
+        FIRST_LETTER -> VerseMasking.firstLetter(verseText)
+    }
+}
+
+/** "Show first word" / "Show first letter" buttons; tapping the active hint's button again hides it. */
+@Composable
+internal fun RecallHintButtons(hint: RecallHint, enabled: Boolean, onHintChange: (RecallHint) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = { onHintChange(if (hint == RecallHint.FIRST_WORD) RecallHint.NONE else RecallHint.FIRST_WORD) },
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+        ) { Text(if (hint == RecallHint.FIRST_WORD) "Hide first word" else "Show first word") }
+        TextButton(
+            onClick = { onHintChange(if (hint == RecallHint.FIRST_LETTER) RecallHint.NONE else RecallHint.FIRST_LETTER) },
+            enabled = enabled,
+            modifier = Modifier.weight(1f),
+        ) { Text(if (hint == RecallHint.FIRST_LETTER) "Hide first letter" else "Show first letter") }
+    }
+}
+
 @Composable
 private fun ReviewVerseCard(
     text: String?,
@@ -196,12 +224,12 @@ private fun ReviewVerseCard(
     // True when the cycle was launched from "Not quite" rather than from the pre-reveal button,
     // so completing it should submit the (already-known) failed result instead of revealing.
     var reinforcing by remember(text) { mutableStateOf(false) }
-    var hintShown by remember(text) { mutableStateOf(false) }
+    var hint by remember(text) { mutableStateOf(RecallHint.NONE) }
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 56.dp.toPx() }
 
     val cycleText = text?.let { VerseMasking.forRound(it, round, VerseMasking.REVIEW_ROUNDS) }
-    val hintText = text?.let { VerseMasking.firstWords(it) }
+    val hintText = text?.let { hint.textFor(it) }
 
     Card(
         onClick = { if (cycling) peeking = !peeking },
@@ -262,7 +290,7 @@ private fun ReviewVerseCard(
                     style = scriptureTextStyle(rtl = isRtl && text != null),
                     fontFamily = fontFamily,
                 )
-            } else if (hintShown) {
+            } else if (hint != RecallHint.NONE) {
                 Text(
                     hintText ?: "Not cached yet — connect to the internet and reopen Today.",
                     style = scriptureTextStyle(rtl = isRtl && hintText != null),
@@ -279,9 +307,7 @@ private fun ReviewVerseCard(
     when {
         cycling -> {}
         !revealed -> {
-            TextButton(onClick = { hintShown = !hintShown }, enabled = text != null) {
-                Text(if (hintShown) "Hide hint" else "Hint")
-            }
+            RecallHintButtons(hint = hint, enabled = text != null, onHintChange = { hint = it })
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(

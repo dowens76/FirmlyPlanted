@@ -40,6 +40,9 @@ object VerseMasking {
         return text.substring(0, matches.last().range.last + 1)
     }
 
+    /** Just the first letter of [text]'s first word, the rest of that word hyphened, for a review hint. */
+    fun firstLetter(text: String): String = maskAllButFirstChar(firstWords(text, count = 1))
+
     /**
      * Deterministic, evenly-spread order in which words become permanently revealed as the
      * round number increases (see [forRound]) — greedy farthest-point placement, so revealed

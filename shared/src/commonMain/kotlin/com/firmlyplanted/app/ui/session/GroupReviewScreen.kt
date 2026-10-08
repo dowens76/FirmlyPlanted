@@ -51,6 +51,7 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
     val isRtl = isRtlLanguage(viewModel.translation?.language)
 
     var revealedIds by remember { mutableStateOf(emptySet<String>()) }
+    var hints by remember { mutableStateOf(emptyMap<String, RecallHint>()) }
     var showAll by remember { mutableStateOf(false) }
     var reviewDone by remember { mutableStateOf(false) }
 
@@ -94,11 +95,26 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
                                     "${verse.book} ${verse.chapter}:${verse.verseNumber}",
                                     style = MaterialTheme.typography.titleSmall,
                                 )
+                                val hint = hints[verse.id] ?: RecallHint.NONE
+                                val hintText = verse.text?.let { hint.textFor(it) }
                                 if (revealed) {
                                     Text(
                                         verse.text ?: "Not cached — connect to the internet to see this verse.",
                                         style = scriptureTextStyle(rtl = isRtl && verse.text != null),
                                         fontFamily = fontFamily,
+                                    )
+                                } else {
+                                    if (hintText != null) {
+                                        Text(
+                                            hintText,
+                                            style = scriptureTextStyle(rtl = isRtl),
+                                            fontFamily = fontFamily,
+                                        )
+                                    }
+                                    RecallHintButtons(
+                                        hint = hint,
+                                        enabled = verse.text != null,
+                                        onHintChange = { hints = hints + (verse.id to it) },
                                     )
                                 }
                             }

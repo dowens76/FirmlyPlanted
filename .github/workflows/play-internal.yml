@@ -1,0 +1,84 @@
+name: Play internal testing
+
+# Runs on demand (Actions tab → Play internal testing → Run workflow) or when a version tag
+# like v0.1.1 is pushed — the same tag also triggers the TestFlight upload.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: play-internal
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Empty until the Play service account is set up; the upload step is skipped until then,
+      # but the signed bundle is still saved as a download (needed for the first, manual upload).
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # versionCode 2 was used by hand, so CI numbering starts at 3 and goes up by one each run.
+      - name: Set version code
+        run: echo "VERSION_CODE=$((GITHUB_RUN_NUMBER + 2))" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Write local.properties
+        env:
+          ESV_API_KEY: ${{ secrets.ESV_API_KEY }}
+        run: echo "ESV_API_KEY=$ESV_API_KEY" > local.properties
+
+      - name: Install upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          echo "ANDROID_UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed bundle
+        env:
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease -PversionCode="$VERSION_CODE"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: play-bundle-${{ env.VERSION_CODE }}
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/mapping.txt
+
+      - name: Upload to Play internal testing
+        if: env.PLAY_SERVICE_ACCOUNT_JSON != ''
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.firmlyplanted.app
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
+          track: internal
+          status: completed
+
+      - name: Summary
+        run: |
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "Uploaded version code $VERSION_CODE to Play internal testing." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Built version code $VERSION_CODE. Play upload skipped: PLAY_SERVICE_ACCOUNT_JSON isn't set. Download the bundle above to upload it by hand." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove upload key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"

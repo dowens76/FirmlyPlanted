@@ -12,14 +12,30 @@ android {
         applicationId = "com.firmlyplanted.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        // CI passes -PversionCode so every Play upload gets a higher number; local builds use 2.
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 2
         versionName = "0.1.1"
+    }
+
+    // Play upload key. Only CI has it (as GitHub secrets, exported as these environment
+    // variables); without them, release builds come out unsigned, as before.
+    val uploadKeystore = System.getenv("ANDROID_UPLOAD_KEYSTORE")
+    signingConfigs {
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = file(uploadKeystore)
+                storePassword = System.getenv("ANDROID_UPLOAD_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
         }
         debug {
             isMinifyEnabled = false
