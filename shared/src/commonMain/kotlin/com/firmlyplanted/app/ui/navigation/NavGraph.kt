@@ -71,6 +71,7 @@ fun FirmlyPlantedNavHost(navController: NavHostController = rememberNavControlle
                 onStartSession = { navController.navigate(Routes.session(projectId)) },
                 onSettings = { navController.navigate(Routes.settings(projectId)) },
                 onReadMore = { navController.navigate(Routes.readMore(projectId)) },
+                onFullReview = { navController.navigate(Routes.groupReview(projectId)) },
                 onBack = { navController.popBackStack() },
             )
         }

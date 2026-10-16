@@ -38,6 +38,7 @@ fun TodayScreen(
     onStartSession: () -> Unit,
     onSettings: () -> Unit,
     onReadMore: () -> Unit,
+    onFullReview: () -> Unit,
     onBack: () -> Unit,
 ) {
     val container = LocalAppContainer.current
@@ -59,6 +60,7 @@ fun TodayScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
+                    TextButton(onClick = onFullReview) { Text("Skip to full review") }
                     IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, contentDescription = "Project settings") }
                 },
             )

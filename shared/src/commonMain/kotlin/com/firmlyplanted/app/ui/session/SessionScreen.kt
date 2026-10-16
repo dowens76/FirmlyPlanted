@@ -62,7 +62,14 @@ fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -
         if (viewModel.finished) onReviewPassage()
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Today's Session") }) }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Today's Session") },
+                actions = { TextButton(onClick = onReviewPassage) { Text("Skip to full review") } },
+            )
+        },
+    ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
             when {
                 viewModel.loading || viewModel.finished -> CircularProgressIndicator()
@@ -100,10 +107,9 @@ fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -
                                 )
                             }
                             Spacer(Modifier.height(24.dp))
-                            SlowDownOptions(
-                                onFinishSession = onFinish,
-                                onSkipToFullPassageReview = onReviewPassage,
-                            )
+                            TextButton(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
+                                Text("Finish Session")
+                            }
                         }
                     }
                 }
@@ -344,24 +350,6 @@ private fun PageIndicator(pageCount: Int, currentPage: Int, modifier: Modifier =
                 MaterialTheme.colorScheme.primary
             }
             Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-        }
-    }
-}
-
-/**
- * Lets the user slow the pace down mid-session instead of pushing through everything today.
- * Both options leave anything not yet acted on untouched — in particular, today's new verse
- * stays un-introduced until "I've got it" is actually tapped, so it comes back as the new verse
- * next time rather than advancing.
- */
-@Composable
-private fun SlowDownOptions(onFinishSession: () -> Unit, onSkipToFullPassageReview: () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        TextButton(onClick = onFinishSession, modifier = Modifier.weight(1f)) {
-            Text("Finish Session")
-        }
-        TextButton(onClick = onSkipToFullPassageReview, modifier = Modifier.weight(1f)) {
-            Text("Skip to full passage review")
         }
     }
 }
