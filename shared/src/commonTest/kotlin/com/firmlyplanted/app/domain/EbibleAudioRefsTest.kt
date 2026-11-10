@@ -5,10 +5,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** App (English-style) WLC references -> eBible.org (Masoretic) audio clips. */
+/** App verse references -> eBible.org audio clips: WLC (English-style) vs Masoretic, and SBLGNT vs Nestle 1904. */
 class EbibleAudioRefsTest {
 
-    private fun resolve(book: String, chapter: Int, verse: Int) = EbibleAudioRefs.resolve(book, chapter, verse)
+    private val hebrew = EbibleAudioRefs.HEBREW
+    private val greek = EbibleAudioRefs.GREEK
+
+    private fun resolve(book: String, chapter: Int, verse: Int) = hebrew.resolve(book, chapter, verse)
 
     @Test
     fun sameNumberingWhereTheyAgree() {
@@ -69,12 +72,48 @@ class EbibleAudioRefsTest {
 
     @Test
     fun epubFileNames() {
-        val ruth = EbibleAudioRefs.bookFile("Ruth")!!
-        assertEquals("Tanakh fluent 08-Ruth רות.epub", ruth.fileName(AudioSpeed.FLUENT))
+        assertEquals("Tanakh fluent 08-Ruth רות.epub", hebrew.fileName(hebrew.bookFile("Ruth")!!, AudioSpeed.FLUENT))
         assertEquals(
             "Tanakh slower 09-First Samuel שמואל א.epub",
-            EbibleAudioRefs.bookFile("1 Samuel")!!.fileName(AudioSpeed.SLOWER),
+            hebrew.fileName(hebrew.bookFile("1 Samuel")!!, AudioSpeed.SLOWER),
         )
-        assertEquals(39, EbibleAudioIndex.bookFiles.size)
+        assertEquals(39, hebrew.bookFiles.size)
+        // Greek has one recording; a stray SLOWER setting still names the only file.
+        assertEquals("56_Philippians_ΠΡΟΣ ΦΙΛΙΠΠΗΣΙΟΥΣ.epub", greek.fileName(greek.bookFile("Philippians")!!, AudioSpeed.SLOWER))
+        assertEquals("68_1 John_ΙΩΑΝΟΥ Α.epub", greek.fileName(greek.bookFile("1 John")!!, AudioSpeed.FLUENT))
+    }
+
+    @Test
+    fun editionsByTranslation() {
+        assertEquals(hebrew, EbibleAudioRefs.forTranslation(DefaultTranslations.WLC_ID))
+        assertEquals(greek, EbibleAudioRefs.forTranslation(DefaultTranslations.SBLGNT_ID))
+        assertEquals(null, EbibleAudioRefs.forTranslation(DefaultTranslations.ESV_ID))
+        assertEquals(listOf(AudioSpeed.FLUENT), greek.speeds)
+    }
+
+    @Test
+    fun greekVersesMapToTheSameNumbers() {
+        assertEquals(listOf(EbibleClipRef(chapter = 1, verse = 1)), greek.resolve("Philippians", 1, 1))
+        assertEquals(listOf(EbibleClipRef(chapter = 3, verse = 16)), greek.resolve("John", 3, 16))
+        // Books eBible.org hasn't recorded yet have no audio.
+        assertTrue(greek.resolve("Acts", 1, 1).isEmpty())
+        assertTrue(greek.resolve("Genesis", 1, 1).isEmpty())
+    }
+
+    @Test
+    fun greekVerseDivisionsThatDiffer() {
+        // Nestle 1904 ends Eph 5:13 earlier than SBLGNT; the rest of its 5:13 is read with 5:14.
+        assertEquals(listOf(EbibleClipRef(chapter = 5, clipId = "13a")), greek.resolve("Ephesians", 5, 13))
+        assertEquals("13b", greek.resolve("Ephesians", 5, 14).first().clipId)
+    }
+
+    @Test
+    fun greekWordingDifferencesAreFlagged() {
+        // John 1:34: Nestle 1904 "ὁ υἱὸς τοῦ θεοῦ", SBLGNT "ὁ ἐκλεκτὸς τοῦ θεοῦ".
+        assertTrue(greek.wordingDiffers("John", 1, 34))
+        // John 1:15 differs only in spelling (Ἰωάνης / Ἰωάννης), which isn't flagged.
+        assertFalse(greek.wordingDiffers("John", 1, 15))
+        assertFalse(greek.wordingDiffers("Philippians", 1, 1))
+        assertFalse(hebrew.wordingDiffers("Genesis", 1, 1))
     }
 }

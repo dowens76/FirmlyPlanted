@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +36,17 @@ interface VersePlayer {
 /** A player that stops and releases its resources when the composable leaves the screen. */
 @Composable
 expect fun rememberVersePlayer(): VersePlayer
+
+/** Shown with the Listen button when the recording's text of the verse isn't the one on screen. */
+@Composable
+fun AudioWordingNote(modifier: Modifier = Modifier) {
+    Text(
+        "The recording follows a different edition of the text here, so a few words differ.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier,
+    )
+}
 
 /** "Listen" / "Stop" for one verse. */
 @Composable

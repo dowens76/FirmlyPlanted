@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
+import com.firmlyplanted.app.ui.audio.AudioWordingNote
 import com.firmlyplanted.app.ui.audio.ListenButton
 import com.firmlyplanted.app.ui.audio.rememberVersePlayer
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
@@ -108,6 +109,9 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
                                     )
                                     val audio = viewModel.audioFor(verse)
                                     if (revealed && audio != null) ListenButton(audio, player)
+                                }
+                                if (revealed && viewModel.audioFor(verse) != null && viewModel.audioWordingDiffers(verse)) {
+                                    AudioWordingNote()
                                 }
                                 val hint = hints[verse.id] ?: RecallHint.NONE
                                 val hintText = verse.text?.let { hint.textFor(it) }

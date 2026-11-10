@@ -11,6 +11,7 @@ import com.firmlyplanted.app.data.repository.AudioDownloadState
 import com.firmlyplanted.app.data.repository.AudioRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.domain.AudioSpeed
+import com.firmlyplanted.app.domain.EbibleAudioEdition
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +34,7 @@ class ProjectSettingsViewModel(
     var isPasted by mutableStateOf(false)
         private set
 
-    /** This project's Hebrew audio download progress; null until it has been checked. */
+    /** This project's verse audio download progress; null until it has been checked. */
     val audioState: StateFlow<AudioDownloadState?> = audioRepository.states
         .map { it[projectId] }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -44,6 +45,9 @@ class ProjectSettingsViewModel(
     }
 
     fun supportsAudio(project: MemoryProjectEntity?): Boolean = audioRepository.supportsAudio(project)
+
+    /** The recording this project can play (Hebrew or Greek), or null. */
+    fun audioEdition(project: MemoryProjectEntity?): EbibleAudioEdition? = audioRepository.editionFor(project)
 
     fun setAudioSpeed(speed: AudioSpeed) {
         viewModelScope.launch { audioRepository.setSpeed(projectId, speed) }

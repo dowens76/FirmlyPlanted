@@ -44,6 +44,9 @@ class GroupReviewViewModel(
         }
     }
 
-    /** The verse's Hebrew audio clip, if this is a WLC project and it's downloaded. */
+    /** Where to play the verse from, if the project's translation has a recording and it's downloaded. */
     fun audioFor(verse: VerseEntity): VerseAudio? = project?.let { audioRepository.verseAudio(it, verse) }
+
+    /** True when the recording reads this verse with different words (Greek: Nestle 1904 vs SBLGNT). */
+    fun audioWordingDiffers(verse: VerseEntity): Boolean = project?.let { audioRepository.wordingDiffers(it, verse) } == true
 }

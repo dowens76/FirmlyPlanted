@@ -12,7 +12,7 @@ import com.firmlyplanted.app.data.local.VerseEntity
 import com.firmlyplanted.app.data.remote.EbibleAudioService
 import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.BookCatalog
-import com.firmlyplanted.app.domain.DefaultTranslations
+import com.firmlyplanted.app.domain.EbibleAudioEdition
 import com.firmlyplanted.app.domain.EbibleAudioRefs
 import com.firmlyplanted.app.domain.ProjectStatus
 import kotlinx.coroutines.CancellationException
@@ -41,7 +41,9 @@ sealed interface AudioDownloadState {
 }
 
 /**
- * Hebrew verse audio for WLC projects: Abraham Shmuelof's reading from eBible.org's audio ePubs.
+ * Verse audio from eBible.org's audio ePubs, for projects in a translation that has a recording
+ * ([EbibleAudioRefs.forTranslation]): Abraham Shmuelof's Hebrew reading for WLC, Andy Martin's
+ * Greek reading (Nestle 1904) for SBLGNT.
  * For every ePub chapter a project's verses touch, the chapter recording (MP3) and its media
  * overlay (SMIL, the start/end time of each verse) are saved exactly as they are in the ePub. To
  * play a verse, [verseAudio] looks up its span in the SMIL and the player plays just that range
@@ -67,18 +69,24 @@ class AudioRepository(
     /** Parsed SMIL per file path. Only touched from the UI thread ([verseAudio]). */
     private val smilCache = mutableMapOf<String, List<SmilClip>>()
 
-    fun supportsAudio(project: MemoryProjectEntity?): Boolean =
-        project != null && project.translationId == DefaultTranslations.WLC_ID &&
-            EbibleAudioRefs.bookFile(project.book) != null
+    /** The recording this project's verses can be played from, or null if there's none for its book. */
+    fun editionFor(project: MemoryProjectEntity?): EbibleAudioEdition? =
+        project?.let { EbibleAudioRefs.forTranslation(it.translationId) }?.takeIf { it.bookFile(project.book) != null }
+
+    fun supportsAudio(project: MemoryProjectEntity?): Boolean = editionFor(project) != null
+
+    /** True when the recording's wording for this verse differs from the project's text. */
+    fun wordingDiffers(project: MemoryProjectEntity, verse: VerseEntity): Boolean =
+        editionFor(project)?.wordingDiffers(project.book, verse.chapter, verse.verseNumber) == true
 
     /**
      * Where the verse is in the downloaded chapter recordings, or null when it has no audio or its
      * chapter isn't downloaded yet. Call from the UI thread.
      */
     fun verseAudio(project: MemoryProjectEntity, verse: VerseEntity): VerseAudio? {
-        if (!supportsAudio(project)) return null
+        val edition = editionFor(project) ?: return null
         val speed = project.audioSpeed
-        val refs = EbibleAudioRefs.resolve(project.book, verse.chapter, verse.verseNumber)
+        val refs = edition.resolve(project.book, verse.chapter, verse.verseNumber)
         val segments = VerseRanges.segments(
             refs,
             clipsFor = { chapter ->
@@ -138,13 +146,14 @@ class AudioRepository(
 
     private suspend fun download(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
-        if (!supportsAudio(project) || project.status != ProjectStatus.ACTIVE) return
+        val edition = editionFor(project) ?: return
+        if (project.status != ProjectStatus.ACTIVE) return
         val speed = project.audioSpeed
         val bookCode = BookCatalog.byName(project.book)?.code ?: return
 
         // Progress is counted in verses: a verse is ready once every ePub chapter it touches is.
         val verseChapters = verseDao.getForProject(projectId)
-            .map { EbibleAudioRefs.resolve(project.book, it.chapter, it.verseNumber).map { ref -> ref.chapter }.toSet() }
+            .map { edition.resolve(project.book, it.chapter, it.verseNumber).map { ref -> ref.chapter }.toSet() }
             .filter { it.isNotEmpty() }
         val total = verseChapters.size
         val needed = verseChapters.flatten().distinct().sorted()
@@ -163,7 +172,7 @@ class AudioRepository(
         try {
             for (chapter in needed) {
                 if (chapter in have) continue
-                val audio = service.fetchChapter(project.book, bookCode, chapter, speed)
+                val audio = service.fetchChapter(edition, project.book, bookCode, chapter, speed)
                 store.writeChapter(projectId, speed, chapter, audio.mp3, audio.smil)
                 have += chapter
                 publish(projectId, AudioDownloadState.Downloading(done(), total))

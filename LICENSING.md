@@ -110,8 +110,27 @@ publishes it as audio ePubs under **CC BY-NC-ND 4.0**:
 
 The app's verse numbering (fetch.bible `hbo_wlc`) differs from the ePubs' Masoretic numbering and
 the ePubs' timing tags have a few errors, so `scripts/build_ebible_audio_map.py` generates
-`EbibleAudioIndex.kt` by aligning the two texts. Only factual timing/numbering data is derived;
-no audio is part of the app or the repository.
+`EbibleHebrewAudioIndex.kt` by aligning the two texts. Only factual timing/numbering data is
+derived; no audio is part of the app or the repository.
+
+## Greek audio — Andy Martin's reading of the Nestle 1904 text (eBible.org)
+
+SBLGNT projects can play each verse aloud, using the Greek New Testament (public-domain 1904
+Nestle text) read by Andy Martin, as published at https://ebible.org/multimedia/grc/ under
+**CC BY-NC-ND 4.0** ("All these resources are published under a Creative Commons 4.0 BY-NC-ND
+License"). So far eBible.org offers 13 books: Matthew, Mark, Luke, John, Romans, 1 Corinthians,
+Ephesians, Philippians, Colossians, 1–3 John and Jude; other books have no audio until eBible.org
+adds them (add them to `GREEK_BOOKS` in the script and re-run it).
+
+The BY, NC and ND points above apply in the same way: credit in Project Settings and About
+(`EbibleAudioRefs.GREEK.credit`), non-commercial use, and chapter MP3s and SMIL files stored byte
+for byte and played as time ranges, never cut or altered.
+
+The recording reads Nestle 1904, not the SBLGNT the app displays. `EbibleGreekAudioIndex.kt` maps
+SBLGNT verses to the recording by aligning the two texts, and lists the verses whose recorded
+words differ (beyond spelling such as Δαυείδ/Δαυίδ or Ἰωάνης/Ἰωάννης and word division); the app
+shows a short note with those verses' Listen button. Mark 6:27–28, Luke 24:45–46 and Ephesians
+5:13–14 divide the verses differently and are mapped by clip.
 
 ## The app's own code
 

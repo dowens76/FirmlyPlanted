@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.domain.VerseMasking
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
+import com.firmlyplanted.app.ui.audio.AudioWordingNote
 import com.firmlyplanted.app.ui.audio.ListenButton
 import com.firmlyplanted.app.ui.audio.rememberVersePlayer
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
@@ -103,6 +104,11 @@ fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -
                                 if (audio != null && (viewModel.isCurrentNew() || viewModel.revealed)) {
                                     ListenButton(audio, player)
                                 }
+                            }
+                            if (viewModel.audioFor(verse) != null && (viewModel.isCurrentNew() || viewModel.revealed) &&
+                                viewModel.audioWordingDiffers(verse)
+                            ) {
+                                AudioWordingNote()
                             }
                             Spacer(Modifier.height(16.dp))
                             if (viewModel.isCurrentNew()) {

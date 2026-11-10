@@ -38,7 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.data.repository.AudioDownloadState
 import com.firmlyplanted.app.domain.AudioSpeed
-import com.firmlyplanted.app.domain.EbibleAudioRefs
+import com.firmlyplanted.app.domain.EbibleAudioEdition
 import com.firmlyplanted.app.domain.VersePhase
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
@@ -93,11 +93,13 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
             }
 
             val currentProject = project
-            if (currentProject != null && viewModel.supportsAudio(currentProject)) {
+            val edition = viewModel.audioEdition(currentProject)
+            if (currentProject != null && edition != null) {
                 Spacer(Modifier.height(32.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(16.dp))
-                HebrewAudioSection(
+                AudioSection(
+                    edition = edition,
                     speed = currentProject.audioSpeed,
                     state = audioState,
                     onSpeedChange = viewModel::setAudioSpeed,
@@ -142,7 +144,7 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
                             "Your pasted text and progress history stay on this device until you delete the project."
                         hasAudio ->
                             "This clears the small amount of Scripture text cached on this device for this project " +
-                                "and deletes its downloaded Hebrew audio. Your progress history is kept."
+                                "and deletes its downloaded audio. Your progress history is kept."
                         else ->
                             "This clears the small amount of Scripture text currently cached on this device for this project. Your progress history is kept."
                     },
@@ -169,25 +171,33 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
 }
 
 @Composable
-private fun HebrewAudioSection(
+private fun AudioSection(
+    edition: EbibleAudioEdition,
     speed: AudioSpeed,
     state: AudioDownloadState?,
     onSpeedChange: (AudioSpeed) -> Unit,
     onRetry: () -> Unit,
 ) {
-    Text("Hebrew audio", style = MaterialTheme.typography.titleMedium)
+    Text(edition.label, style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(8.dp))
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        val options = listOf(AudioSpeed.FLUENT to "Normal", AudioSpeed.SLOWER to "Slower (−20%)")
-        options.forEachIndexed { index, (option, label) ->
-            SegmentedButton(
-                selected = speed == option,
-                onClick = { if (speed != option) onSpeedChange(option) },
-                shape = SegmentedButtonDefaults.itemShape(index, options.size),
-            ) { Text(label) }
+    if (edition.speeds.size > 1) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            val options = edition.speeds.map {
+                it to when (it) {
+                    AudioSpeed.FLUENT -> "Normal"
+                    AudioSpeed.SLOWER -> "Slower (−20%)"
+                }
+            }
+            options.forEachIndexed { index, (option, label) ->
+                SegmentedButton(
+                    selected = speed == option,
+                    onClick = { if (speed != option) onSpeedChange(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                ) { Text(label) }
+            }
         }
+        Spacer(Modifier.height(8.dp))
     }
-    Spacer(Modifier.height(8.dp))
     when (state) {
         null -> Text("Checking audio…", style = MaterialTheme.typography.bodyMedium)
         is AudioDownloadState.Downloading -> {
@@ -209,5 +219,5 @@ private fun HebrewAudioSection(
         }
     }
     Spacer(Modifier.height(8.dp))
-    Text(EbibleAudioRefs.CREDIT, style = MaterialTheme.typography.bodySmall)
+    Text(edition.credit, style = MaterialTheme.typography.bodySmall)
 }

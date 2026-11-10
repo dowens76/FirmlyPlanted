@@ -2,12 +2,13 @@
 package com.firmlyplanted.app.domain
 
 /**
- * Maps this app's WLC verse references to clips in eBible.org's audio ePubs of Abraham Shmuelof's
- * Hebrew reading. Verses not listed in [rangeRules] or [overrides] use the same chapter and verse
- * number in the ePub (all of that verse's clips: `N`, `Na`, `Nb`, ...). See the script for how
- * the table is derived. 4 app verses have no matching audio.
+ * Maps this app's WLC verse references to clips in eBible.org's audio ePubs of Abraham
+ * Shmuelof's Hebrew reading (Masoretic numbering).
+ * Verses not listed in [rangeRules] or [overrides] use the same chapter and verse number in the
+ * ePub (all of that verse's clips: `N`, `Na`, `Nb`, ...). See the script for how the table is
+ * derived. 4 of 23143 app verses have no matching audio.
  */
-object EbibleAudioIndex {
+object EbibleHebrewAudioIndex {
     const val BASE_URL = "https://ebible.org/multimedia/hbo/"
 
     /** App book name -> its ePub file. */
@@ -243,4 +244,10 @@ object EbibleAudioIndex {
         EbibleVerseKey("Daniel", 2, 48) to listOf("2:48a", "2:48b"),
         EbibleVerseKey("Daniel", 2, 49) to listOf("2:48c"),
     )
+
+    /**
+     * App verses whose recorded words differ from the app's text (0), ignoring word division and
+     * spelling-only differences (ει/ι, νν/ν). Empty when not tracked for this edition.
+     */
+    val differingVerses: Set<EbibleVerseKey> = emptySet()
 }

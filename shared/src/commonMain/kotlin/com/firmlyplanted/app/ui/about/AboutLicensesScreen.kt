@@ -70,11 +70,11 @@ fun AboutLicensesScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            items(EbibleAudioRefs.all) { edition ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Hebrew audio (WLC projects)", style = MaterialTheme.typography.titleSmall)
-                        Text(EbibleAudioRefs.CREDIT, style = MaterialTheme.typography.bodySmall)
+                        Text("${edition.label} (${edition.translationId} projects)", style = MaterialTheme.typography.titleSmall)
+                        Text(edition.credit, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
