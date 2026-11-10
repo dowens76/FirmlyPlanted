@@ -44,8 +44,9 @@ data class EbibleClipRef(val chapter: Int, val verse: Int? = null, val clipId: S
 object EbibleAudioRefs {
     /** Attribution required by CC BY; shown in Project Settings and About. */
     const val CREDIT = "Hebrew audio: the Hebrew Bible read by Abraham Shmuelof, from eBible.org " +
-        "(ebible.org/multimedia/hbo), licensed CC BY-NC-ND 4.0. Each verse is played as recorded, " +
-        "unaltered; audio is downloaded only for your WLC projects' verses and deleted when a " +
+        "(ebible.org/multimedia/hbo), licensed CC BY-NC-ND 4.0. The chapter recordings are stored " +
+        "unaltered, and each verse is played from them using the timings in eBible.org's own ePub. " +
+        "Audio is downloaded only for the chapters your WLC projects use and deleted when a " +
         "project is completed, archived or deleted."
 
     private val rulesByChapter: Map<Pair<String, Int>, List<EbibleRangeRule>> =

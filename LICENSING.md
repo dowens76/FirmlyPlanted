@@ -99,13 +99,14 @@ publishes it as audio ePubs under **CC BY-NC-ND 4.0**:
 - **BY** — credit is shown in each WLC project's settings and on the About screen
   (`EbibleAudioRefs.CREDIT`).
 - **NC** — fine while the app is non-commercial (it already must be, for the ESV terms).
-- **ND** — the audio is never re-encoded, mixed or altered. The app downloads each chapter's MP3
-  directly from eBible.org to the user's device (HTTP Range requests read only the needed
-  entries of the ePub), cuts it at MPEG frame boundaries into one file per verse using eBible.org's
-  own timing data, and plays those verbatim. Nothing is redistributed: clips live only in the
-  app's private storage and are deleted when the project is completed, archived or deleted.
-  **Worth confirming** with eBible.org that per-verse excerpting for in-app playback is within
-  their intent, before publishing beyond personal use.
+- **ND** — the audio is never cut, re-encoded, mixed or altered. The app downloads each needed
+  chapter's MP3 and its EPUB3 media overlay (SMIL) directly from eBible.org to the user's device
+  (HTTP Range requests read only those entries of the ePub) and stores both byte for byte as they
+  are in the ePub, only undoing the zip's own compression. To play a verse it plays the time
+  range the SMIL gives for that verse from the unaltered chapter file — what any EPUB 3 reading
+  system does with an audio ePub. Nothing is redistributed: the files live only in the app's
+  private storage and are deleted when the project is completed, archived or deleted. Still
+  worth a courtesy note to eBible.org before publishing beyond personal use.
 
 The app's verse numbering (fetch.bible `hbo_wlc`) differs from the ePubs' Masoretic numbering and
 the ePubs' timing tags have a few errors, so `scripts/build_ebible_audio_map.py` generates

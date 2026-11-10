@@ -1,9 +1,10 @@
 package com.firmlyplanted.app.data.repository
 
 import com.firmlyplanted.app.data.audio.AudioFileStore
-import com.firmlyplanted.app.data.audio.Mp3Clipper
 import com.firmlyplanted.app.data.audio.SmilClip
 import com.firmlyplanted.app.data.audio.SmilParser
+import com.firmlyplanted.app.data.audio.VerseAudio
+import com.firmlyplanted.app.data.audio.VerseRanges
 import com.firmlyplanted.app.data.local.MemoryProjectDao
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.VerseDao
@@ -13,7 +14,6 @@ import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.BookCatalog
 import com.firmlyplanted.app.domain.DefaultTranslations
 import com.firmlyplanted.app.domain.EbibleAudioRefs
-import com.firmlyplanted.app.domain.EbibleClipRef
 import com.firmlyplanted.app.domain.ProjectStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -42,10 +42,11 @@ sealed interface AudioDownloadState {
 
 /**
  * Hebrew verse audio for WLC projects: Abraham Shmuelof's reading from eBible.org's audio ePubs.
- * For every verse in a project's scope, the matching span of the chapter recording is cut out
- * (see [Mp3Clipper]) and saved as its own small MP3, so sessions can play any verse instantly and
- * offline. Each chapter MP3 is downloaded once per run, cut, and discarded; clips stay until the
- * project is completed, archived or deleted ([removeProjectAudio]).
+ * For every ePub chapter a project's verses touch, the chapter recording (MP3) and its media
+ * overlay (SMIL, the start/end time of each verse) are saved exactly as they are in the ePub. To
+ * play a verse, [verseAudio] looks up its span in the SMIL and the player plays just that range
+ * of the chapter file, as an EPUB reading system would; the recording itself is never cut or
+ * altered. Files stay until the project is completed, archived or deleted ([removeProjectAudio]).
  */
 class AudioRepository(
     private val projectDao: MemoryProjectDao,
@@ -63,19 +64,40 @@ class AudioRepository(
     /** Download progress per project id; absent until [ensureProjectAudio] has run for it. */
     val states: StateFlow<Map<String, AudioDownloadState>> = _states.asStateFlow()
 
+    /** Parsed SMIL per file path. Only touched from the UI thread ([verseAudio]). */
+    private val smilCache = mutableMapOf<String, List<SmilClip>>()
+
     fun supportsAudio(project: MemoryProjectEntity?): Boolean =
         project != null && project.translationId == DefaultTranslations.WLC_ID &&
             EbibleAudioRefs.bookFile(project.book) != null
 
-    /** The verse's saved clip, or null when it isn't downloaded (or the project has no audio). */
-    fun clipPath(project: MemoryProjectEntity, verse: VerseEntity): String? {
+    /**
+     * Where the verse is in the downloaded chapter recordings, or null when it has no audio or its
+     * chapter isn't downloaded yet. Call from the UI thread.
+     */
+    fun verseAudio(project: MemoryProjectEntity, verse: VerseEntity): VerseAudio? {
         if (!supportsAudio(project)) return null
-        return store.clipPath(project.id, project.audioSpeed, verse.chapter, verse.verseNumber)
-            .takeIf { store.hasClip(project.id, project.audioSpeed, verse.chapter, verse.verseNumber) }
+        val speed = project.audioSpeed
+        val refs = EbibleAudioRefs.resolve(project.book, verse.chapter, verse.verseNumber)
+        val segments = VerseRanges.segments(
+            refs,
+            clipsFor = { chapter ->
+                if (!store.hasChapter(project.id, speed, chapter)) {
+                    null
+                } else {
+                    val path = store.smilPath(project.id, speed, chapter)
+                    smilCache[path] ?: store.readSmil(project.id, speed, chapter)
+                        ?.let { SmilParser.parse(it) }
+                        ?.also { smilCache[path] = it }
+                }
+            },
+            pathFor = { chapter -> store.mp3Path(project.id, speed, chapter) },
+        ) ?: return null
+        return VerseAudio("${project.id}/${speed.name}/${verse.chapter}:${verse.verseNumber}", segments)
     }
 
     /**
-     * Starts (or resumes) downloading the project's missing clips in the background; returns at
+     * Starts (or resumes) downloading the project's missing chapters in the background; returns at
      * once. Does nothing for non-WLC or inactive projects, or if a download is already running.
      */
     fun ensureProjectAudio(projectId: String) {
@@ -87,7 +109,7 @@ class AudioRepository(
         }
     }
 
-    /** Switches the project's recording, deleting the other speed's clips, then re-downloads. */
+    /** Switches the project's recording, deleting the other speed's files, then re-downloads. */
     suspend fun setSpeed(projectId: String, speed: AudioSpeed) {
         cancel(projectId)
         val project = projectDao.getById(projectId) ?: return
@@ -100,7 +122,7 @@ class AudioRepository(
         ensureProjectAudio(projectId)
     }
 
-    /** Stops any download and deletes every clip of the project. */
+    /** Stops any download and deletes all of the project's audio files. */
     suspend fun removeProjectAudio(projectId: String) {
         cancel(projectId)
         withContext(Dispatchers.IO) { store.deleteProject(projectId) }
@@ -120,79 +142,37 @@ class AudioRepository(
         val speed = project.audioSpeed
         val bookCode = BookCatalog.byName(project.book)?.code ?: return
 
-        val withAudio = verseDao.getForProject(projectId)
-            .sortedBy { it.orderIndex }
-            .map { it to EbibleAudioRefs.resolve(project.book, it.chapter, it.verseNumber) }
-            .filter { (_, refs) -> refs.isNotEmpty() }
-        val total = withAudio.size
-        val missing = withAudio.filter { (v, _) -> !store.hasClip(projectId, speed, v.chapter, v.verseNumber) }
-        var done = total - missing.size
-        if (missing.isEmpty()) {
+        // Progress is counted in verses: a verse is ready once every ePub chapter it touches is.
+        val verseChapters = verseDao.getForProject(projectId)
+            .map { EbibleAudioRefs.resolve(project.book, it.chapter, it.verseNumber).map { ref -> ref.chapter }.toSet() }
+            .filter { it.isNotEmpty() }
+        val total = verseChapters.size
+        val needed = verseChapters.flatten().distinct().sorted()
+        val have = needed.filterTo(mutableSetOf()) { store.hasChapter(projectId, speed, it) }
+        fun done() = verseChapters.count { have.containsAll(it) }
+
+        if (have.size == needed.size) {
             publish(projectId, AudioDownloadState.Complete(total))
             return
         }
         if (!isOnline()) {
-            publish(projectId, AudioDownloadState.Incomplete(done, total, "Waiting for a connection to download audio."))
+            publish(projectId, AudioDownloadState.Incomplete(done(), total, "Waiting for a connection to download audio."))
             return
         }
-        publish(projectId, AudioDownloadState.Downloading(done, total))
-
-        // A verse can span two ePub chapters (e.g. 1 Sam 20:42 = Hebrew 20:42 + 21:1), so its
-        // pieces are collected per chapter and written once all are in.
-        val pieces = mutableMapOf<VerseEntity, Array<ByteArray?>>()
-        val chapters = missing.flatMap { (_, refs) -> refs.map { it.chapter } }.distinct()
-        var failures = 0
+        publish(projectId, AudioDownloadState.Downloading(done(), total))
         try {
-            for (chapter in chapters) {
+            for (chapter in needed) {
+                if (chapter in have) continue
                 val audio = service.fetchChapter(project.book, bookCode, chapter, speed)
-                val clips = SmilParser.parse(audio.smil)
-                val clipper = Mp3Clipper(audio.mp3)
-                for ((verse, refs) in missing) {
-                    refs.forEachIndexed { index, ref ->
-                        if (ref.chapter != chapter) return@forEachIndexed
-                        val bytes = cut(clipper, clips, ref)
-                        pieces.getOrPut(verse) { arrayOfNulls(refs.size) }[index] = bytes ?: ByteArray(0)
-                        if (bytes == null) failures++
-                    }
-                    val collected = pieces[verse] ?: continue
-                    if (collected.any { it == null }) continue
-                    pieces.remove(verse)
-                    if (collected.all { it!!.isNotEmpty() }) {
-                        store.writeClip(projectId, speed, verse.chapter, verse.verseNumber, concat(collected))
-                        done++
-                        publish(projectId, AudioDownloadState.Downloading(done, total))
-                    }
-                }
+                store.writeChapter(projectId, speed, chapter, audio.mp3, audio.smil)
+                have += chapter
+                publish(projectId, AudioDownloadState.Downloading(done(), total))
             }
-            publish(
-                projectId,
-                if (done == total) {
-                    AudioDownloadState.Complete(total)
-                } else {
-                    AudioDownloadState.Incomplete(done, total, "$failures verse${if (failures == 1) "" else "s"} had no matching audio.")
-                },
-            )
+            publish(projectId, AudioDownloadState.Complete(total))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            publish(projectId, AudioDownloadState.Incomplete(done, total, "Download stopped: ${e.message ?: "network error"}"))
+            publish(projectId, AudioDownloadState.Incomplete(done(), total, "Download stopped: ${e.message ?: "network error"}"))
         }
-    }
-
-    private fun cut(clipper: Mp3Clipper, clips: List<SmilClip>, ref: EbibleClipRef): ByteArray? {
-        val matching = clips.filter { ref.matches(it.id) }
-        if (matching.isEmpty()) return null
-        return clipper.clip(matching.minOf { it.begin }, matching.maxOf { it.end }).takeIf { it.isNotEmpty() }
-    }
-
-    private fun concat(parts: Array<ByteArray?>): ByteArray {
-        if (parts.size == 1) return parts[0]!!
-        val out = ByteArray(parts.sumOf { it!!.size })
-        var p = 0
-        for (part in parts) {
-            part!!.copyInto(out, p)
-            p += part.size
-        }
-        return out
     }
 }

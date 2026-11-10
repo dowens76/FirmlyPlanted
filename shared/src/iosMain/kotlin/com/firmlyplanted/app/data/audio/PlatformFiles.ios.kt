@@ -7,13 +7,22 @@ import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
 import platform.Foundation.create
+import platform.Foundation.dataWithContentsOfFile
 import platform.Foundation.writeToFile
+import platform.posix.memcpy
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 internal actual object PlatformFiles {
     private val fileManager get() = NSFileManager.defaultManager
 
     actual fun exists(path: String): Boolean = fileManager.fileExistsAtPath(path)
+
+    actual fun readBytes(path: String): ByteArray? {
+        val data = NSData.dataWithContentsOfFile(path) ?: return null
+        val size = data.length.toInt()
+        if (size == 0) return ByteArray(0)
+        return ByteArray(size).apply { usePinned { memcpy(it.addressOf(0), data.bytes, data.length) } }
+    }
 
     /** `atomically = true` writes a temporary file and renames it, so a partial file never exists at [path]. */
     actual fun writeBytes(path: String, bytes: ByteArray) {

@@ -57,7 +57,7 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
     val fontFamily = fontFamilyForLanguage(viewModel.translation?.language)
     val isRtl = isRtlLanguage(viewModel.translation?.language)
     val player = rememberVersePlayer()
-    viewModel.audioStates.collectAsStateWithLifecycle().value // Recompose as clips download.
+    viewModel.audioStates.collectAsStateWithLifecycle().value // Recompose as chapters download.
 
     var revealedIds by remember { mutableStateOf(emptySet<String>()) }
     var hints by remember { mutableStateOf(emptyMap<String, RecallHint>()) }
@@ -106,8 +106,8 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
                                         style = MaterialTheme.typography.titleSmall,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    val clip = viewModel.clipPathFor(verse)
-                                    if (revealed && clip != null) ListenButton(clip, player)
+                                    val audio = viewModel.audioFor(verse)
+                                    if (revealed && audio != null) ListenButton(audio, player)
                                 }
                                 val hint = hints[verse.id] ?: RecallHint.NONE
                                 val hintText = verse.text?.let { hint.textFor(it) }

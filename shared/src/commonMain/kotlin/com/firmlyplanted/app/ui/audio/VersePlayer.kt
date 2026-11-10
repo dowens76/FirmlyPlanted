@@ -1,8 +1,8 @@
 package com.firmlyplanted.app.ui.audio
 
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -10,39 +10,38 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.firmlyplanted.app.data.audio.VerseAudio
 import kotlinx.coroutines.flow.StateFlow
 
-/** Plays one saved verse clip at a time (MediaPlayer on Android, AVAudioPlayer on iOS). */
-expect class VersePlayer() {
-    /** Path of the clip playing now, or null. */
+/**
+ * Plays one verse at a time: each of its segments is a time range of an unaltered chapter
+ * recording, played from its start to its end with sample-accurate positioning (AVAudioEngine on
+ * iOS, Media3 ExoPlayer with an exact MP3 index on Android).
+ */
+interface VersePlayer {
+    /** [VerseAudio.key] of the verse playing now, or null. */
     val playing: StateFlow<String?>
 
-    /** Stops whatever is playing and plays the MP3 at [path]. */
-    fun play(path: String)
+    /** Stops whatever is playing and plays [audio]. */
+    fun play(audio: VerseAudio)
 
     fun stop()
 }
 
-/** A player that stops when the composable leaves the screen. */
+/** A player that stops and releases its resources when the composable leaves the screen. */
 @Composable
-fun rememberVersePlayer(): VersePlayer {
-    val player = remember { VersePlayer() }
-    DisposableEffect(player) { onDispose { player.stop() } }
-    return player
-}
+expect fun rememberVersePlayer(): VersePlayer
 
-/** "Listen" / "Stop" for one verse's clip. */
+/** "Listen" / "Stop" for one verse. */
 @Composable
-fun ListenButton(path: String, player: VersePlayer, modifier: Modifier = Modifier) {
+fun ListenButton(audio: VerseAudio, player: VersePlayer, modifier: Modifier = Modifier) {
     val playing by player.playing.collectAsState()
-    val isThis = playing == path
-    OutlinedButton(onClick = { if (isThis) player.stop() else player.play(path) }, modifier = modifier) {
+    val isThis = playing == audio.key
+    OutlinedButton(onClick = { if (isThis) player.stop() else player.play(audio) }, modifier = modifier) {
         Icon(
             if (isThis) Icons.Default.Close else Icons.Default.PlayArrow,
             contentDescription = null,

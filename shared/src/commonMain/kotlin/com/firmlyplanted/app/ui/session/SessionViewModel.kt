@@ -1,5 +1,6 @@
 package com.firmlyplanted.app.ui.session
 
+import com.firmlyplanted.app.data.audio.VerseAudio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -69,7 +70,7 @@ class SessionViewModel(
     fun currentVerseId(): String? = queue.getOrNull(currentIndex)
 
     /** The verse's Hebrew audio clip, if this is a WLC project and it's downloaded. */
-    fun clipPathFor(verse: VerseEntity): String? = project?.let { audioRepository.clipPath(it, verse) }
+    fun audioFor(verse: VerseEntity): VerseAudio? = project?.let { audioRepository.verseAudio(it, verse) }
 
     fun isCurrentNew(): Boolean = currentVerseId() in newIds
 

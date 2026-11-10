@@ -99,9 +99,9 @@ fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -
                                 )
                                 // In review, hearing the verse would give the answer away, so
                                 // it's offered only once the verse is revealed.
-                                val clip = viewModel.clipPathFor(verse)
-                                if (clip != null && (viewModel.isCurrentNew() || viewModel.revealed)) {
-                                    ListenButton(clip, player)
+                                val audio = viewModel.audioFor(verse)
+                                if (audio != null && (viewModel.isCurrentNew() || viewModel.revealed)) {
+                                    ListenButton(audio, player)
                                 }
                             }
                             Spacer(Modifier.height(16.dp))

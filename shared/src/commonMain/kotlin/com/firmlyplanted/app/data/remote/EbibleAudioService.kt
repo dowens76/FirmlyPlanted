@@ -7,8 +7,8 @@ import io.ktor.http.encodeURLPathPart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** A chapter of the Shmuelof recording: its media overlay (SMIL) and MP3. */
-class ChapterAudio(val smil: String, val mp3: ByteArray)
+/** One chapter's files, byte for byte as stored in the ePub (after undoing the zip compression). */
+class ChapterAudio(val smil: ByteArray, val mp3: ByteArray)
 
 /**
  * eBible.org's audio ePubs of the Hebrew Bible read by Abraham Shmuelof
@@ -29,7 +29,7 @@ class EbibleAudioService(private val zip: RangedZipReader) {
         val stem = "00-${bookCode.uppercase()}-${chapter.toString().padStart(3, '0')}"
         val smilEntry = directory["Text/$stem.xhtml.smil"] ?: error("$book $chapter has no timing data")
         val mp3Entry = directory["Audio/$stem.mp3"] ?: error("$book $chapter has no audio")
-        val smil = zip.read(url, smilEntry).decodeToString()
+        val smil = zip.read(url, smilEntry)
         return ChapterAudio(smil, zip.read(url, mp3Entry))
     }
 }

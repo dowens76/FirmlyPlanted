@@ -99,6 +99,8 @@ kotlin {
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.9.2")
             implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+            // Exact-position playback of verse ranges in the chapter MP3s (see VersePlayer.android.kt).
+            implementation("androidx.media3:media3-exoplayer:1.8.0")
         }
         iosMain.dependencies {
             implementation("io.ktor:ktor-client-darwin:$ktorVersion")

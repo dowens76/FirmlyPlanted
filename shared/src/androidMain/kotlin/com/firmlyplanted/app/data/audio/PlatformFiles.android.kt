@@ -5,6 +5,8 @@ import java.io.File
 internal actual object PlatformFiles {
     actual fun exists(path: String): Boolean = File(path).isFile
 
+    actual fun readBytes(path: String): ByteArray? = File(path).takeIf { it.isFile }?.readBytes()
+
     /** Writes to a temporary sibling, then renames, so a half-written file never exists at [path]. */
     actual fun writeBytes(path: String, bytes: ByteArray) {
         val file = File(path)
