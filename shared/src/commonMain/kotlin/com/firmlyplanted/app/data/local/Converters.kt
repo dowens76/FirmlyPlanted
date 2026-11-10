@@ -1,6 +1,7 @@
 package com.firmlyplanted.app.data.local
 
 import androidx.room.TypeConverter
+import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.ProjectStatus
 import com.firmlyplanted.app.domain.TranslationSource
 import com.firmlyplanted.app.domain.VersePhase
@@ -37,4 +38,10 @@ class Converters {
 
     @TypeConverter
     fun toTranslationSource(value: String): TranslationSource = TranslationSource.valueOf(value)
+
+    @TypeConverter
+    fun fromAudioSpeed(value: AudioSpeed): String = value.name
+
+    @TypeConverter
+    fun toAudioSpeed(value: String): AudioSpeed = AudioSpeed.entries.firstOrNull { it.name == value } ?: AudioSpeed.FLUENT
 }

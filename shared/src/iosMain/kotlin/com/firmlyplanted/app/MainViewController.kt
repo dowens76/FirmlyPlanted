@@ -8,17 +8,34 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSApplicationSupportDirectory
 import platform.Foundation.NSBundle
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSUserDomainMask
 import platform.UIKit.UIViewController
 
 /** iOS counterpart of the Android `FirmlyPlantedApp` Application: one container per process. */
 private val container: AppContainer by lazy {
     NetworkMonitor.start()
-    AppContainer(createAppDatabase(), NetworkMonitor::isOnline, bundleVersion()).also { container ->
+    AppContainer(createAppDatabase(), NetworkMonitor::isOnline, bundleVersion(), audioDirectory()).also { container ->
         CoroutineScope(Dispatchers.IO).launch {
             container.translationRepository.ensureDefaultsSeeded()
         }
     }
+}
+
+/** Under Application Support, alongside the database: private to the app, not user-visible. */
+@OptIn(ExperimentalForeignApi::class)
+private fun audioDirectory(): String {
+    val directory = NSFileManager.defaultManager.URLForDirectory(
+        directory = NSApplicationSupportDirectory,
+        inDomain = NSUserDomainMask,
+        appropriateForURL = null,
+        create = true,
+        error = null,
+    )
+    return requireNotNull(directory?.path) { "Application Support directory unavailable" } + "/audio"
 }
 
 /** The app's version and build number from Info.plist, e.g. "0.1.1 (6)". */

@@ -15,10 +15,14 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.firmlyplanted.app.data.repository.AudioDownloadState
+import com.firmlyplanted.app.domain.AudioSpeed
+import com.firmlyplanted.app.domain.EbibleAudioRefs
 import com.firmlyplanted.app.domain.VersePhase
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
@@ -40,15 +47,17 @@ import com.firmlyplanted.app.ui.simpleFactory
 fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemoved: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: ProjectSettingsViewModel = viewModel(
-        factory = simpleFactory { ProjectSettingsViewModel(projectId, container.projectRepository) },
+        factory = simpleFactory { ProjectSettingsViewModel(projectId, container.projectRepository, container.audioRepository) },
     )
     val project by viewModel.project.collectAsStateWithLifecycle()
     val verses by viewModel.verses.collectAsStateWithLifecycle()
+    val audioState by viewModel.audioState.collectAsStateWithLifecycle()
 
     var newPerDay by remember(project) { mutableStateOf(project?.newVersesPerDay ?: 2) }
     var reviewPerDay by remember(project) { mutableStateOf(project?.reviewVersesPerDay ?: 20) }
     var showCompleteDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val hasAudio = viewModel.supportsAudio(project)
 
     Scaffold(
         topBar = {
@@ -83,12 +92,31 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
                 }
             }
 
+            val currentProject = project
+            if (currentProject != null && viewModel.supportsAudio(currentProject)) {
+                Spacer(Modifier.height(32.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                HebrewAudioSection(
+                    speed = currentProject.audioSpeed,
+                    state = audioState,
+                    onSpeedChange = viewModel::setAudioSpeed,
+                    onRetry = viewModel::retryAudio,
+                )
+            }
+
             Spacer(Modifier.height(32.dp))
             HorizontalDivider()
             Spacer(Modifier.height(16.dp))
 
             OutlinedButton(onClick = { showCompleteDialog = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (viewModel.isPasted) "Mark Complete" else "Mark Complete (clears cached text)")
+                Text(
+                    when {
+                        viewModel.isPasted -> "Mark Complete"
+                        hasAudio -> "Mark Complete (clears cached text and audio)"
+                        else -> "Mark Complete (clears cached text)"
+                    },
+                )
             }
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { viewModel.archive(onProjectRemoved) }, modifier = Modifier.fillMaxWidth()) {
@@ -109,10 +137,14 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
             title = { Text("Mark this project complete?") },
             text = {
                 Text(
-                    if (viewModel.isPasted) {
-                        "Your pasted text and progress history stay on this device until you delete the project."
-                    } else {
-                        "This clears the small amount of Scripture text currently cached on this device for this project. Your progress history is kept."
+                    when {
+                        viewModel.isPasted ->
+                            "Your pasted text and progress history stay on this device until you delete the project."
+                        hasAudio ->
+                            "This clears the small amount of Scripture text cached on this device for this project " +
+                                "and deletes its downloaded Hebrew audio. Your progress history is kept."
+                        else ->
+                            "This clears the small amount of Scripture text currently cached on this device for this project. Your progress history is kept."
                     },
                 )
             },
@@ -134,4 +166,48 @@ fun ProjectSettingsScreen(projectId: String, onBack: () -> Unit, onProjectRemove
             dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+private fun HebrewAudioSection(
+    speed: AudioSpeed,
+    state: AudioDownloadState?,
+    onSpeedChange: (AudioSpeed) -> Unit,
+    onRetry: () -> Unit,
+) {
+    Text("Hebrew audio", style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(8.dp))
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        val options = listOf(AudioSpeed.FLUENT to "Normal", AudioSpeed.SLOWER to "Slower (−20%)")
+        options.forEachIndexed { index, (option, label) ->
+            SegmentedButton(
+                selected = speed == option,
+                onClick = { if (speed != option) onSpeedChange(option) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+            ) { Text(label) }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    when (state) {
+        null -> Text("Checking audio…", style = MaterialTheme.typography.bodyMedium)
+        is AudioDownloadState.Downloading -> {
+            Text("Downloading audio: ${state.done} of ${state.total} verses", style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { state.done.toFloat() / state.total.coerceAtLeast(1) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        is AudioDownloadState.Complete ->
+            Text("Audio downloaded for all ${state.total} verses.", style = MaterialTheme.typography.bodyMedium)
+        is AudioDownloadState.Incomplete -> {
+            Text(
+                "Audio downloaded for ${state.done} of ${state.total} verses. ${state.message}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            TextButton(onClick = onRetry) { Text("Try again") }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(EbibleAudioRefs.CREDIT, style = MaterialTheme.typography.bodySmall)
 }

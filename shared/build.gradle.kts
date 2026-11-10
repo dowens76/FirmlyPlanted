@@ -52,6 +52,10 @@ kotlin {
         androidResources {
             enable = true
         }
+
+        // Runs commonTest on the JVM too (`:shared:testAndroidHostTest`), which needs no simulator
+        // and covers the Android actuals (e.g. inflateRaw).
+        withHostTest {}
     }
 
     compilerOptions {
@@ -101,6 +105,8 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation("io.ktor:ktor-client-mock:$ktorVersion")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
         }
         all {
             languageSettings.optIn("androidx.compose.material3.ExperimentalMaterial3Api")

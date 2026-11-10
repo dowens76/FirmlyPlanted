@@ -20,6 +20,7 @@ class FirmlyPlantedApp : Application() {
             appVersion = packageManager.getPackageInfo(packageName, 0).let { info ->
                 "${info.versionName} (${PackageInfoCompat.getLongVersionCode(info)})"
             },
+            audioDir = java.io.File(filesDir, "audio").absolutePath,
         )
         CoroutineScope(Dispatchers.IO).launch {
             container.translationRepository.ensureDefaultsSeeded()

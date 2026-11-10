@@ -41,6 +41,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.domain.VerseMasking
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
+import com.firmlyplanted.app.ui.audio.ListenButton
+import com.firmlyplanted.app.ui.audio.rememberVersePlayer
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
 import com.firmlyplanted.app.ui.theme.isRtlLanguage
 import com.firmlyplanted.app.ui.theme.scriptureTextStyle
@@ -50,11 +52,16 @@ import kotlin.math.abs
 fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: SessionViewModel = viewModel(
-        factory = simpleFactory { SessionViewModel(projectId, container.projectRepository, container.translationRepository) },
+        factory = simpleFactory { SessionViewModel(projectId, container.projectRepository, container.translationRepository, container.audioRepository) },
     )
     val verses by viewModel.verses.collectAsStateWithLifecycle()
     val verseFontFamily = fontFamilyForLanguage(viewModel.translation?.language)
     val verseIsRtl = isRtlLanguage(viewModel.translation?.language)
+    val player = rememberVersePlayer()
+    // Reading the download state here recomposes the screen as clips arrive, so the Listen
+    // button appears once the current verse's clip is downloaded.
+    viewModel.audioStates.collectAsStateWithLifecycle().value
+    LaunchedEffect(viewModel.currentIndex) { player.stop() }
 
     // Every session ends with a review of the whole passage learned so far, which then shows
     // the session-complete message.
@@ -84,10 +91,19 @@ fun SessionScreen(projectId: String, onReviewPassage: () -> Unit, onFinish: () -
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Spacer(Modifier.height(24.dp))
-                            Text(
-                                "${verse.book} ${verse.chapter}:${verse.verseNumber}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "${verse.book} ${verse.chapter}:${verse.verseNumber}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                // In review, hearing the verse would give the answer away, so
+                                // it's offered only once the verse is revealed.
+                                val clip = viewModel.clipPathFor(verse)
+                                if (clip != null && (viewModel.isCurrentNew() || viewModel.revealed)) {
+                                    ListenButton(clip, player)
+                                }
+                            }
                             Spacer(Modifier.height(16.dp))
                             if (viewModel.isCurrentNew()) {
                                 NewVerseCard(

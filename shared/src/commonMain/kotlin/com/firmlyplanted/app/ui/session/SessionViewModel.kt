@@ -5,7 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.VerseEntity
+import com.firmlyplanted.app.data.repository.AudioRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.data.repository.TranslationRepository
 import com.firmlyplanted.app.domain.Translation
@@ -19,7 +21,13 @@ class SessionViewModel(
     private val projectId: String,
     private val projectRepository: ProjectRepository,
     private val translationRepository: TranslationRepository,
+    private val audioRepository: AudioRepository,
 ) : ViewModel() {
+
+    /** Recomposes the screen as clips finish downloading, so Listen buttons appear. */
+    val audioStates = audioRepository.states
+
+    private var project: MemoryProjectEntity? = null
 
     val verses: StateFlow<List<VerseEntity>> = projectRepository.observeVerses(projectId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -44,7 +52,9 @@ class SessionViewModel(
     init {
         viewModelScope.launch {
             val project = projectRepository.observeProject(projectId).first()
+            this@SessionViewModel.project = project
             translation = project?.let { translationRepository.getById(it.translationId) }
+            audioRepository.ensureProjectAudio(projectId)
 
             val plan = projectRepository.getTodayPlan(projectId)
             newIds = plan.newVerseIds.toSet()
@@ -57,6 +67,9 @@ class SessionViewModel(
     }
 
     fun currentVerseId(): String? = queue.getOrNull(currentIndex)
+
+    /** The verse's Hebrew audio clip, if this is a WLC project and it's downloaded. */
+    fun clipPathFor(verse: VerseEntity): String? = project?.let { audioRepository.clipPath(it, verse) }
 
     fun isCurrentNew(): Boolean = currentVerseId() in newIds
 

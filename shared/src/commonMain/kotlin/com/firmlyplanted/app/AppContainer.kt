@@ -1,7 +1,9 @@
 package com.firmlyplanted.app
 
+import com.firmlyplanted.app.data.audio.AudioFileStore
 import com.firmlyplanted.app.data.local.AppDatabase
 import com.firmlyplanted.app.data.remote.NetworkModule
+import com.firmlyplanted.app.data.repository.AudioRepository
 import com.firmlyplanted.app.data.repository.BackupRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.data.repository.TextFetcher
@@ -16,6 +18,8 @@ class AppContainer(
     val isOnline: () -> Boolean,
     /** The installed app's version and build number, e.g. "0.1.1 (6)", read from the platform. */
     val appVersion: String,
+    /** App-private directory for downloaded Hebrew verse audio (created on first write). */
+    audioDir: String,
 ) {
     val translationRepository = TranslationRepository(
         translationDao = database.translationDao(),
@@ -30,10 +34,19 @@ class AppContainer(
 
     val backupRepository = BackupRepository(database, appVersion)
 
+    val audioRepository = AudioRepository(
+        projectDao = database.memoryProjectDao(),
+        verseDao = database.verseDao(),
+        store = AudioFileStore(audioDir),
+        service = NetworkModule.ebibleAudio,
+        isOnline = isOnline,
+    )
+
     val projectRepository = ProjectRepository(
         projectDao = database.memoryProjectDao(),
         verseDao = database.verseDao(),
         translationDao = database.translationDao(),
         textFetcher = textFetcher,
+        audioRepository = audioRepository,
     )
 }

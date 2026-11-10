@@ -7,7 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.VerseEntity
+import com.firmlyplanted.app.data.repository.AudioDownloadState
+import com.firmlyplanted.app.data.repository.AudioRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
+import com.firmlyplanted.app.domain.AudioSpeed
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -16,6 +20,7 @@ import kotlinx.coroutines.launch
 class ProjectSettingsViewModel(
     private val projectId: String,
     private val projectRepository: ProjectRepository,
+    private val audioRepository: AudioRepository,
 ) : ViewModel() {
 
     val project: StateFlow<MemoryProjectEntity?> = projectRepository.observeProject(projectId)
@@ -28,9 +33,23 @@ class ProjectSettingsViewModel(
     var isPasted by mutableStateOf(false)
         private set
 
+    /** This project's Hebrew audio download progress; null until it has been checked. */
+    val audioState: StateFlow<AudioDownloadState?> = audioRepository.states
+        .map { it[projectId] }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         viewModelScope.launch { isPasted = projectRepository.isPasted(projectId) }
+        audioRepository.ensureProjectAudio(projectId)
     }
+
+    fun supportsAudio(project: MemoryProjectEntity?): Boolean = audioRepository.supportsAudio(project)
+
+    fun setAudioSpeed(speed: AudioSpeed) {
+        viewModelScope.launch { audioRepository.setSpeed(projectId, speed) }
+    }
+
+    fun retryAudio() = audioRepository.ensureProjectAudio(projectId)
 
     fun updatePace(newVersesPerDay: Int, reviewVersesPerDay: Int) {
         viewModelScope.launch { projectRepository.updatePace(projectId, newVersesPerDay, reviewVersesPerDay) }

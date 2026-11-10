@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.VerseEntity
+import com.firmlyplanted.app.data.repository.AudioRepository
 import com.firmlyplanted.app.data.repository.ProjectRepository
 import com.firmlyplanted.app.data.repository.TranslationRepository
 import com.firmlyplanted.app.data.repository.toProgress
@@ -26,6 +27,7 @@ class TodayViewModel(
     private val projectRepository: ProjectRepository,
     private val translationRepository: TranslationRepository,
     private val isOnline: () -> Boolean,
+    private val audioRepository: AudioRepository,
 ) : ViewModel() {
 
     val project: StateFlow<MemoryProjectEntity?> = projectRepository.observeProject(projectId)
@@ -60,6 +62,7 @@ class TodayViewModel(
             val online = isOnline()
             offline = !online
             projectRepository.ensureWindowCached(projectId, t, online)
+            audioRepository.ensureProjectAudio(projectId) // WLC only; resumes an interrupted download.
             refreshing = false
         }
     }

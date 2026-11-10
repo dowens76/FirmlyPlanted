@@ -44,7 +44,10 @@ fun TodayScreen(
     val container = LocalAppContainer.current
     val viewModel: TodayViewModel = viewModel(
         factory = simpleFactory {
-            TodayViewModel(projectId, container.projectRepository, container.translationRepository, container.isOnline)
+            TodayViewModel(
+                projectId, container.projectRepository, container.translationRepository, container.isOnline,
+                container.audioRepository,
+            )
         },
     )
 

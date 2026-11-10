@@ -3,6 +3,7 @@ package com.firmlyplanted.app.ui.session
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,9 +27,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.simpleFactory
+import com.firmlyplanted.app.ui.audio.ListenButton
+import com.firmlyplanted.app.ui.audio.rememberVersePlayer
 import com.firmlyplanted.app.ui.theme.fontFamilyForLanguage
 import com.firmlyplanted.app.ui.theme.isRtlLanguage
 import com.firmlyplanted.app.ui.theme.scriptureTextStyle
@@ -43,12 +47,17 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: GroupReviewViewModel = viewModel(
         factory = simpleFactory {
-            GroupReviewViewModel(projectId, container.projectRepository, container.translationRepository, container.isOnline)
+            GroupReviewViewModel(
+                projectId, container.projectRepository, container.translationRepository, container.isOnline,
+                container.audioRepository,
+            )
         },
     )
     val verses = viewModel.verses
     val fontFamily = fontFamilyForLanguage(viewModel.translation?.language)
     val isRtl = isRtlLanguage(viewModel.translation?.language)
+    val player = rememberVersePlayer()
+    viewModel.audioStates.collectAsStateWithLifecycle().value // Recompose as clips download.
 
     var revealedIds by remember { mutableStateOf(emptySet<String>()) }
     var hints by remember { mutableStateOf(emptyMap<String, RecallHint>()) }
@@ -91,10 +100,15 @@ fun GroupReviewScreen(projectId: String, onDone: () -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Column(Modifier.padding(16.dp)) {
-                                Text(
-                                    "${verse.book} ${verse.chapter}:${verse.verseNumber}",
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "${verse.book} ${verse.chapter}:${verse.verseNumber}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    val clip = viewModel.clipPathFor(verse)
+                                    if (revealed && clip != null) ListenButton(clip, player)
+                                }
                                 val hint = hints[verse.id] ?: RecallHint.NONE
                                 val hintText = verse.text?.let { hint.textFor(it) }
                                 if (revealed) {

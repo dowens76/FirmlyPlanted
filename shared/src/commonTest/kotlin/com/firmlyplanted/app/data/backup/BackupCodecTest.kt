@@ -3,6 +3,7 @@ package com.firmlyplanted.app.data.backup
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.TranslationEntity
 import com.firmlyplanted.app.data.local.VerseEntity
+import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.ProjectStatus
 import com.firmlyplanted.app.domain.TranslationSource
 import com.firmlyplanted.app.domain.VersePhase
@@ -113,5 +114,17 @@ class BackupCodecTest {
             .replace("\"formatVersion\": ${BackupCodec.FORMAT_VERSION}", "\"formatVersion\": ${BackupCodec.FORMAT_VERSION + 1}")
         val error = assertFailsWith<InvalidBackupException> { BackupCodec.decode(newer) }
         assertTrue(error.message!!.contains("newer version"))
+    }
+
+    @Test
+    fun keepsAudioSpeedAndDefaultsItForOlderBackups() {
+        val slower = contents.copy(projects = listOf(project("p1", "esv").copy(audioSpeed = AudioSpeed.SLOWER), project("p2", "pasted-1")))
+        val encoded = BackupCodec.encode(slower, "0.1.1 (2)", createdAt)
+        assertEquals(AudioSpeed.SLOWER, BackupCodec.decode(encoded).projects.first { it.id == "p1" }.audioSpeed)
+
+        // Backups written before the field existed have no "audioSpeed" key at all.
+        val older = encoded.replace(Regex(""",\s*"audioSpeed": "[A-Z]+""""), "")
+        assertTrue("audioSpeed" !in older)
+        assertTrue(BackupCodec.decode(older).projects.all { it.audioSpeed == AudioSpeed.FLUENT })
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.firmlyplanted.app.domain.DefaultTranslations
+import com.firmlyplanted.app.domain.EbibleAudioRefs
 import com.firmlyplanted.app.ui.LocalAppContainer
 import com.firmlyplanted.app.ui.resolveCopyrightNotice
 
@@ -66,6 +67,14 @@ fun AboutLicensesScreen(onBack: () -> Unit) {
                                 "that notice is shown before you create a project with one.",
                             style = MaterialTheme.typography.bodySmall,
                         )
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Hebrew audio (WLC projects)", style = MaterialTheme.typography.titleSmall)
+                        Text(EbibleAudioRefs.CREDIT, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

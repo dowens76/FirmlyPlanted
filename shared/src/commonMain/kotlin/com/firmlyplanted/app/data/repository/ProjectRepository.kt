@@ -37,6 +37,7 @@ class ProjectRepository(
     private val verseDao: VerseDao,
     private val translationDao: TranslationDao,
     private val textFetcher: TextFetcher,
+    private val audioRepository: AudioRepository,
 ) {
     companion object {
         /** Verses of context cached on either side of a verse actively in play today. */
@@ -122,6 +123,7 @@ class ProjectRepository(
             )
         }
         verseDao.insertAll(verseEntities)
+        audioRepository.ensureProjectAudio(projectId) // WLC only; runs in the background.
 
         return Result.success(projectId)
     }
@@ -333,17 +335,20 @@ class ProjectRepository(
         val project = projectDao.getById(projectId) ?: return
         projectDao.update(project.copy(status = ProjectStatus.COMPLETED, completedAt = currentDateTime()))
         clearCache(projectId)
+        audioRepository.removeProjectAudio(projectId)
     }
 
     suspend fun archiveProject(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
         projectDao.update(project.copy(status = ProjectStatus.ARCHIVED))
         clearCache(projectId)
+        audioRepository.removeProjectAudio(projectId)
     }
 
     suspend fun deleteProject(projectId: String) {
         val project = projectDao.getById(projectId) ?: return
         val pasted = isPasted(projectId)
+        audioRepository.removeProjectAudio(projectId)
         projectDao.delete(project)
         // A pasted project's Translation row belongs to it alone (see createPastedProject).
         if (pasted) translationDao.deleteById(project.translationId)

@@ -1,12 +1,14 @@
 package com.firmlyplanted.app.data.repository
 
 import androidx.room.Room
+import com.firmlyplanted.app.data.audio.AudioFileStore
 import com.firmlyplanted.app.data.local.AppDatabase
 import com.firmlyplanted.app.data.local.buildWithDefaults
 import com.firmlyplanted.app.data.remote.NetworkModule
 import com.firmlyplanted.app.domain.PastedTextParser
 import com.firmlyplanted.app.domain.TranslationSource
 import kotlinx.coroutines.runBlocking
+import platform.Foundation.NSTemporaryDirectory
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,6 +27,13 @@ class PastedProjectTest {
         verseDao = db.verseDao(),
         translationDao = db.translationDao(),
         textFetcher = TextFetcher(NetworkModule.esvApi, NetworkModule.fetchBibleApi, esvApiKey = ""),
+        audioRepository = AudioRepository(
+            projectDao = db.memoryProjectDao(),
+            verseDao = db.verseDao(),
+            store = AudioFileStore(NSTemporaryDirectory() + "pasted-project-test-audio"),
+            service = NetworkModule.ebibleAudio,
+            isOnline = { false },
+        ),
     )
 
     @AfterTest

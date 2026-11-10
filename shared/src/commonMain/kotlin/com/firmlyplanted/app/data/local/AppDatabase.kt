@@ -5,13 +5,16 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
 @Database(
     entities = [TranslationEntity::class, MemoryProjectEntity::class, VerseEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -32,8 +35,16 @@ expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
     override fun initialize(): AppDatabase
 }
 
+/** v2: per-project Hebrew audio speed (see AudioRepository). Existing projects get FLUENT. */
+internal val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE memory_projects ADD COLUMN audioSpeed TEXT NOT NULL DEFAULT 'FLUENT'")
+    }
+}
+
 /** Shared build settings; each platform's `createAppDatabase` supplies the file location. */
 internal fun RoomDatabase.Builder<AppDatabase>.buildWithDefaults(): AppDatabase =
     setDriver(BundledSQLiteDriver())
+        .addMigrations(MIGRATION_1_2)
         .setQueryCoroutineContext(Dispatchers.IO)
         .build()

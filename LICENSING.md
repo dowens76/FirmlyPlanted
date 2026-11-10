@@ -89,6 +89,29 @@ leaning on the public-domain read at scale.
 (`FetchBibleCopyright.buildNotice()`); where a translation's metadata is missing or blank, the
 app falls back to treating it as all-rights-reserved and says so in the notice.
 
+## Hebrew audio — Abraham Shmuelof's reading (eBible.org)
+
+WLC projects can play each verse aloud, using the Hebrew Bible read by Abraham Shmuelof as
+published at https://ebible.org/multimedia/hbo/ (the same recording Mechon Mamre hosts; there,
+credited ℗ 1992 Talking Bibles International, with permission required to reuse it). eBible.org
+publishes it as audio ePubs under **CC BY-NC-ND 4.0**:
+
+- **BY** — credit is shown in each WLC project's settings and on the About screen
+  (`EbibleAudioRefs.CREDIT`).
+- **NC** — fine while the app is non-commercial (it already must be, for the ESV terms).
+- **ND** — the audio is never re-encoded, mixed or altered. The app downloads each chapter's MP3
+  directly from eBible.org to the user's device (HTTP Range requests read only the needed
+  entries of the ePub), cuts it at MPEG frame boundaries into one file per verse using eBible.org's
+  own timing data, and plays those verbatim. Nothing is redistributed: clips live only in the
+  app's private storage and are deleted when the project is completed, archived or deleted.
+  **Worth confirming** with eBible.org that per-verse excerpting for in-app playback is within
+  their intent, before publishing beyond personal use.
+
+The app's verse numbering (fetch.bible `hbo_wlc`) differs from the ePubs' Masoretic numbering and
+the ePubs' timing tags have a few errors, so `scripts/build_ebible_audio_map.py` generates
+`EbibleAudioIndex.kt` by aligning the two texts. Only factual timing/numbering data is derived;
+no audio is part of the app or the repository.
+
 ## The app's own code
 
 MIT License (see `LICENSE`) — that only covers the app's source code, not any Scripture text it

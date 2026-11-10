@@ -32,4 +32,6 @@ object NetworkModule {
     val esvApi: EsvApiService by lazy { EsvApiService(httpClient, json) }
 
     val fetchBibleApi: FetchBibleService by lazy { FetchBibleService(httpClient, json) }
+
+    val ebibleAudio: EbibleAudioService by lazy { EbibleAudioService(RangedZipReader(httpClient)) }
 }

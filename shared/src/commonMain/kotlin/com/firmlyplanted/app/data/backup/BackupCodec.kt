@@ -3,6 +3,7 @@ package com.firmlyplanted.app.data.backup
 import com.firmlyplanted.app.data.local.MemoryProjectEntity
 import com.firmlyplanted.app.data.local.TranslationEntity
 import com.firmlyplanted.app.data.local.VerseEntity
+import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.ProjectStatus
 import com.firmlyplanted.app.domain.TranslationSource
 import com.firmlyplanted.app.domain.VersePhase
@@ -59,6 +60,8 @@ data class BackupProject(
     val createdAt: LocalDateTime,
     val completedAt: LocalDateTime? = null,
     val vie1925ScopeAcknowledged: Boolean = false,
+    /** Added after format 1 shipped; older backups don't have it, so it defaults. Audio itself isn't backed up. */
+    val audioSpeed: AudioSpeed = AudioSpeed.FLUENT,
     val verses: List<BackupVerse>,
 )
 
@@ -164,12 +167,13 @@ object BackupCodec {
 
     private fun MemoryProjectEntity.toBackup(verses: List<BackupVerse>) = BackupProject(
         id, name, translationId, book, startChapter, startVerse, endChapter, endVerse,
-        newVersesPerDay, reviewVersesPerDay, status, createdAt, completedAt, vie1925ScopeAcknowledged, verses,
+        newVersesPerDay, reviewVersesPerDay, status, createdAt, completedAt, vie1925ScopeAcknowledged, audioSpeed,
+        verses,
     )
 
     private fun BackupProject.toEntity() = MemoryProjectEntity(
         id, name, translationId, book, startChapter, startVerse, endChapter, endVerse,
-        newVersesPerDay, reviewVersesPerDay, status, createdAt, completedAt, vie1925ScopeAcknowledged,
+        newVersesPerDay, reviewVersesPerDay, status, createdAt, completedAt, vie1925ScopeAcknowledged, audioSpeed,
     )
 
     private fun VerseEntity.toBackup(keepText: Boolean) = BackupVerse(

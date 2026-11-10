@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.firmlyplanted.app.domain.AudioSpeed
 import com.firmlyplanted.app.domain.ProjectStatus
 import com.firmlyplanted.app.domain.TranslationSource
 import com.firmlyplanted.app.domain.VersePhase
@@ -51,6 +52,8 @@ data class MemoryProjectEntity(
     val createdAt: LocalDateTime,
     val completedAt: LocalDateTime?,
     val vie1925ScopeAcknowledged: Boolean = false,
+    /** Which edition of the Hebrew audio (WLC projects) to download and play. Added in schema v2. */
+    val audioSpeed: AudioSpeed = AudioSpeed.FLUENT,
 )
 
 @Entity(
